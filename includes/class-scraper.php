@@ -187,7 +187,7 @@ class GSFM_Scraper {
 	public function discover( $category ) {
 		$s   = self::get_settings();
 		$map = array();
-		foreach ( $this->collect_product_links( $category, trim( $s['session_cookie'] ), $s ) as $link ) {
+		foreach ( $this->collect_product_links( $category['url'], trim( $s['session_cookie'] ), $s ) as $link ) {
 			$map[ $link ] = $category['slug'];
 		}
 		return $map;
@@ -230,7 +230,7 @@ class GSFM_Scraper {
 		$product_urls = array(); // url => category_slug
 
 		foreach ( $categories as $cat ) {
-			foreach ( $this->collect_product_links( $cat, $cookie, $s ) as $link ) {
+			foreach ( $this->collect_product_links( $cat['url'], $cookie, $s ) as $link ) {
 				if ( ! isset( $product_urls[ $link ] ) ) {
 					$product_urls[ $link ] = $cat['slug'];
 				}
