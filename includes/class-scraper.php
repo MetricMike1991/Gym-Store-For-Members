@@ -129,9 +129,10 @@ class GSFM_Scraper {
 	 */
 	public function run() {
 		$s          = self::get_settings();
-		$categories = $this->lines( $s['category_urls'] );
+		$categories = self::parse_category_lines( $s['category_urls'] );
 
 		if ( ! empty( $categories ) ) {
+			update_option( 'gsfm_categories', $categories );
 			return $this->run_crawl( $s, $categories );
 		}
 
@@ -144,27 +145,62 @@ class GSFM_Scraper {
 	 * @return array
 	 */
 	public function category_urls() {
-		return $this->lines( self::get_settings()['category_urls'] );
+		return wp_list_pluck( $this->parse_category_lines( self::get_settings()['category_urls'] ), 'url' );
+	}
+
+	/**
+	 * Parse the category textarea into structured [{name, url, slug}] entries.
+	 *
+	 * Accepts either a bare URL or "Name | URL" per line.
+	 *
+	 * @param string $text Raw textarea value.
+	 * @return array
+	 */
+	public static function parse_category_lines( $text ) {
+		$cats = array();
+		foreach ( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) $text ) ) ) as $line ) {
+			if ( false !== strpos( $line, '|' ) ) {
+				list( $name, $url ) = array_map( 'trim', explode( '|', $line, 2 ) );
+			} else {
+				$url  = $line;
+				$path = trim( (string) wp_parse_url( $url, PHP_URL_PATH ), '/' );
+				$name = ucwords( str_replace( '-', ' ', basename( $path ) ) );
+			}
+			if ( '' === $url ) {
+				continue;
+			}
+			$cats[] = array(
+				'name' => $name,
+				'url'  => $url,
+				'slug' => sanitize_key( $name ),
+			);
+		}
+		return $cats;
 	}
 
 	/**
 	 * Discover product URLs within one category (used by batched jobs).
 	 *
-	 * @param string $category_url Category URL.
-	 * @return array
+	 * @param array $category Category entry {name, url, slug}.
+	 * @return array  url => category_slug map
 	 */
-	public function discover( $category_url ) {
-		$s = self::get_settings();
-		return $this->collect_product_links( $category_url, trim( $s['session_cookie'] ), $s );
+	public function discover( $category ) {
+		$s   = self::get_settings();
+		$map = array();
+		foreach ( $this->collect_product_links( $category, trim( $s['session_cookie'] ), $s ) as $link ) {
+			$map[ $link ] = $category['slug'];
+		}
+		return $map;
 	}
 
 	/**
 	 * Fetch, extract and upsert a single product (used by batched jobs).
 	 *
-	 * @param string $url Product URL.
+	 * @param string $url          Product URL.
+	 * @param string $category_slug Category the product belongs to.
 	 * @return string 'new' | 'updated' | 'skipped'
 	 */
-	public function handle_product( $url ) {
+	public function handle_product( $url, $category_slug = '' ) {
 		$s    = self::get_settings();
 		$html = $this->fetch( $url, trim( $s['session_cookie'] ) );
 		if ( is_wp_error( $html ) ) {
@@ -176,7 +212,8 @@ class GSFM_Scraper {
 			return 'skipped';
 		}
 
-		$before = GSFM_Products::get_by_ref( $data['supplier_ref'] );
+		$data['category_slug'] = $category_slug;
+		$before                = GSFM_Products::get_by_ref( $data['supplier_ref'] );
 		GSFM_Products::upsert( $data );
 		return $before ? 'updated' : 'new';
 	}
@@ -190,14 +227,15 @@ class GSFM_Scraper {
 	 */
 	private function run_crawl( $s, $categories ) {
 		$cookie       = trim( $s['session_cookie'] );
-		$product_urls = array();
+		$product_urls = array(); // url => category_slug
 
 		foreach ( $categories as $cat ) {
-			$links        = $this->collect_product_links( $cat, $cookie, $s );
-			$product_urls = array_merge( $product_urls, $links );
+			foreach ( $this->collect_product_links( $cat, $cookie, $s ) as $link ) {
+				if ( ! isset( $product_urls[ $link ] ) ) {
+					$product_urls[ $link ] = $cat['slug'];
+				}
+			}
 		}
-
-		$product_urls = array_values( array_unique( $product_urls ) );
 
 		if ( empty( $product_urls ) ) {
 			return new WP_Error( 'gsfm_no_products', __( 'No product links found. Check the category URLs, the product link pattern, and that your session cookie is valid.', 'gym-store-for-members' ) );
@@ -207,7 +245,7 @@ class GSFM_Scraper {
 		$updated = 0;
 		$skipped = 0;
 
-		foreach ( $product_urls as $url ) {
+		foreach ( $product_urls as $url => $cat_slug ) {
 			$html = $this->fetch( $url, $cookie );
 			if ( is_wp_error( $html ) ) {
 				$skipped++;
@@ -220,7 +258,8 @@ class GSFM_Scraper {
 				continue;
 			}
 
-			$before = GSFM_Products::get_by_ref( $data['supplier_ref'] );
+			$data['category_slug'] = $cat_slug;
+			$before                = GSFM_Products::get_by_ref( $data['supplier_ref'] );
 			GSFM_Products::upsert( $data );
 			if ( $before ) {
 				$updated++;

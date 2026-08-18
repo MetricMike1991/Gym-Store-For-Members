@@ -37,6 +37,7 @@ register_activation_hook( __FILE__, array( 'GSFM_Database', 'install' ) );
  * Boot the plugin once all plugins are loaded.
  */
 function gsfm_bootstrap() {
+	GSFM_Database::maybe_upgrade();
 	if ( is_admin() ) {
 		( new GSFM_Admin() )->init();
 	}

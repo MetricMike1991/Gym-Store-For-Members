@@ -52,9 +52,11 @@ class GSFM_Database {
 			display_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
 			in_stock TINYINT(1) NOT NULL DEFAULT 0,
 			visible TINYINT(1) NOT NULL DEFAULT 1,
+			category_slug VARCHAR(191) NOT NULL DEFAULT '',
 			last_scraped DATETIME NULL,
 			PRIMARY KEY  (id),
-			UNIQUE KEY supplier_ref (supplier_ref)
+			UNIQUE KEY supplier_ref (supplier_ref),
+			KEY category_slug (category_slug)
 		) {$charset_collate};";
 
 		$sql_wishlist = "CREATE TABLE {$wishlist} (
@@ -72,6 +74,15 @@ class GSFM_Database {
 		dbDelta( $sql_products );
 		dbDelta( $sql_wishlist );
 
-		add_option( 'gsfm_db_version', GSFM_VERSION );
+		update_option( 'gsfm_db_version', GSFM_VERSION );
+	}
+
+	/**
+	 * Run dbDelta when the stored DB version is behind the plugin version.
+	 */
+	public static function maybe_upgrade() {
+		if ( get_option( 'gsfm_db_version' ) !== GSFM_VERSION ) {
+			self::install();
+		}
 	}
 }

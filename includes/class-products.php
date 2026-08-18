@@ -47,10 +47,11 @@ class GSFM_Products {
 			'image_url'      => $local_image,
 			'supplier_price' => isset( $data['supplier_price'] ) ? (float) $data['supplier_price'] : 0,
 			'in_stock'       => ! empty( $data['in_stock'] ) ? 1 : 0,
+			'category_slug'  => isset( $data['category_slug'] ) ? sanitize_key( $data['category_slug'] ) : '',
 			'last_scraped'   => current_time( 'mysql' ),
 		);
 
-		$formats = array( '%s', '%s', '%s', '%f', '%d', '%s' );
+		$formats = array( '%s', '%s', '%s', '%f', '%d', '%s', '%s' );
 
 		if ( $existing ) {
 			if ( (float) $existing->display_price <= 0 ) {
@@ -125,14 +126,69 @@ class GSFM_Products {
 	/**
 	 * Get products for the front-end shop (in stock + visible).
 	 *
+	 * @param string $category_slug Optional category filter.
 	 * @return array
 	 */
-	public static function get_shop_products() {
+	public static function get_shop_products( $category_slug = '' ) {
 		global $wpdb;
 		$table = GSFM_Database::products_table();
+		if ( '' !== $category_slug ) {
+			return $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT * FROM {$table} WHERE in_stock = 1 AND visible = 1 AND category_slug = %s ORDER BY title ASC",
+					$category_slug
+				)
+			);
+		}
 		return $wpdb->get_results(
 			"SELECT * FROM {$table} WHERE in_stock = 1 AND visible = 1 ORDER BY title ASC"
 		);
+	}
+
+	/**
+	 * Return distinct categories with a cover image and product count.
+	 *
+	 * @return array  Each entry: {category_slug, category_name, cover_image, count}
+	 */
+	public static function get_categories() {
+		global $wpdb;
+		$table = GSFM_Database::products_table();
+
+		$rows = $wpdb->get_results(
+			"SELECT category_slug, COUNT(*) as count,
+			        MAX(CASE WHEN image_url != '' THEN image_url ELSE NULL END) as cover_image
+			 FROM {$table}
+			 WHERE in_stock = 1 AND visible = 1 AND category_slug != ''
+			 GROUP BY category_slug
+			 ORDER BY category_slug ASC"
+		);
+
+		// Merge in human-readable names from the stored settings.
+		$names   = self::category_name_map();
+		$result  = array();
+		foreach ( $rows as $row ) {
+			$row->category_name = isset( $names[ $row->category_slug ] ) ? $names[ $row->category_slug ] : ucwords( str_replace( '-', ' ', $row->category_slug ) );
+			$result[]           = $row;
+		}
+		return $result;
+	}
+
+	/**
+	 * Map of category_slug → display name from stored scraper settings.
+	 *
+	 * @return array
+	 */
+	private static function category_name_map() {
+		$cats = get_option( 'gsfm_categories', array() );
+		$map  = array();
+		if ( is_array( $cats ) ) {
+			foreach ( $cats as $cat ) {
+				if ( ! empty( $cat['slug'] ) && ! empty( $cat['name'] ) ) {
+					$map[ $cat['slug'] ] = $cat['name'];
+				}
+			}
+		}
+		return $map;
 	}
 
 	/**

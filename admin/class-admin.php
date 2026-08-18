@@ -161,7 +161,7 @@ class GSFM_Admin {
 		}
 
 		$scraper    = new GSFM_Scraper();
-		$categories = $scraper->category_urls();
+		$categories = GSFM_Scraper::parse_category_lines( GSFM_Scraper::get_settings()['category_urls'] );
 
 		// No categories: run the legacy one-shot scrape immediately.
 		if ( empty( $categories ) ) {
@@ -175,17 +175,19 @@ class GSFM_Admin {
 			wp_send_json_success( $result );
 		}
 
+		update_option( 'gsfm_categories', $categories );
+
 		$job = array(
-			'status'         => 'running',
-			'phase'          => 'discover',
-			'categories'     => array_values( $categories ),
-			'product_urls'   => array(),
-			'total_products' => 0,
-			'processed'      => 0,
-			'new'            => 0,
-			'updated'        => 0,
-			'skipped'        => 0,
-			'updated_at'     => time(),
+			'status'          => 'running',
+			'phase'           => 'discover',
+			'categories'      => $categories,
+			'product_url_cats' => array(),
+			'total_products'  => 0,
+			'processed'       => 0,
+			'new'             => 0,
+			'updated'         => 0,
+			'skipped'         => 0,
+			'updated_at'      => time(),
 		);
 		update_option( self::JOB_OPTION, $job, false );
 
@@ -215,26 +217,32 @@ class GSFM_Admin {
 		if ( 'discover' === $job['phase'] ) {
 			$category = array_shift( $job['categories'] );
 			if ( null !== $category ) {
-				$found              = $scraper->discover( $category );
-				$job['product_urls'] = array_values( array_unique( array_merge( $job['product_urls'], $found ) ) );
+				$found = $scraper->discover( $category );
+				foreach ( $found as $url => $slug ) {
+					if ( ! isset( $job['product_url_cats'][ $url ] ) ) {
+						$job['product_url_cats'][ $url ] = $slug;
+					}
+				}
 			}
 			if ( empty( $job['categories'] ) ) {
 				$job['phase']          = 'process';
-				$job['total_products'] = count( $job['product_urls'] );
+				$job['total_products'] = count( $job['product_url_cats'] );
 				if ( 0 === $job['total_products'] ) {
 					$job['status'] = 'done';
 				}
 			}
 		} elseif ( 'process' === $job['phase'] ) {
-			$batch = array_splice( $job['product_urls'], 0, self::BATCH );
-			foreach ( $batch as $url ) {
-				$status = $scraper->handle_product( $url );
+			$batch     = array_slice( $job['product_url_cats'], 0, self::BATCH, true );
+			$remaining = array_slice( $job['product_url_cats'], self::BATCH, null, true );
+			$job['product_url_cats'] = $remaining;
+			foreach ( $batch as $url => $cat_slug ) {
+				$status = $scraper->handle_product( $url, $cat_slug );
 				$job['processed']++;
 				if ( isset( $job[ $status ] ) ) {
 					$job[ $status ]++;
 				}
 			}
-			if ( empty( $job['product_urls'] ) ) {
+			if ( empty( $job['product_url_cats'] ) ) {
 				$job['status'] = 'done';
 			}
 		}
@@ -343,7 +351,7 @@ class GSFM_Admin {
 		return array(
 			'status'     => $job['status'],
 			'phase'      => $job['phase'],
-			'discovered' => count( $job['product_urls'] ) + $job['processed'],
+			'discovered' => count( $job['product_url_cats'] ) + $job['processed'],
 			'total'      => $job['total_products'],
 			'processed'  => $job['processed'],
 			'new'        => $job['new'],

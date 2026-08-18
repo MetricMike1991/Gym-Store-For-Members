@@ -39,8 +39,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<tr>
 				<th><label for="category_urls"><?php esc_html_e( 'Category URLs', 'gym-store-for-members' ); ?></label></th>
 				<td>
-					<textarea name="category_urls" id="category_urls" rows="6" class="large-text code" placeholder="https://protaminonutrition.com/product-category/creatine/&#10;https://protaminonutrition.com/product-category/energy-drinks/"><?php echo esc_textarea( $s['category_urls'] ); ?></textarea>
-					<p class="description"><?php esc_html_e( 'One category URL per line. The crawler follows pagination, finds product links, then extracts each product page.', 'gym-store-for-members' ); ?></p>
+					<textarea name="category_urls" id="category_urls" rows="8" class="large-text code" placeholder="Amino Acids | https://protaminonutrition.com/product-category/amino-acids/&#10;Creatine | https://protaminonutrition.com/product-category/creatine/&#10;Energy Drinks | https://protaminonutrition.com/product-category/energy-drinks/"><?php echo esc_textarea( $s['category_urls'] ); ?></textarea>
+					<p class="description"><?php esc_html_e( 'One category per line. Format: Category Name | URL — or just the URL (name is inferred from it). The shop will show a category grid using these names.', 'gym-store-for-members' ); ?></p>
 				</td>
 			</tr>
 			<tr>

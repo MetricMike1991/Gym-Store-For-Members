@@ -38,17 +38,35 @@ class GSFM_Public {
 	}
 
 	/**
-	 * [gym_shop] — product grid.
+	 * [gym_shop] — category grid or product list for a selected category.
 	 *
 	 * @return string
 	 */
 	public function shortcode_shop() {
-		$products    = GSFM_Products::get_shop_products();
 		$logged_in   = is_user_logged_in();
 		$my_products = $logged_in ? GSFM_Wishlist::get_product_ids( get_current_user_id() ) : array();
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$cat_slug = isset( $_GET['gsfm_cat'] ) ? sanitize_key( wp_unslash( $_GET['gsfm_cat'] ) ) : '';
+
+		if ( '' !== $cat_slug ) {
+			$products = GSFM_Products::get_shop_products( $cat_slug );
+			$cats     = GSFM_Products::get_categories();
+			$cat_name = $cat_slug;
+			foreach ( $cats as $c ) {
+				if ( $c->category_slug === $cat_slug ) {
+					$cat_name = $c->category_name;
+					break;
+				}
+			}
+			ob_start();
+			require GSFM_DIR . 'public/views/shop.php';
+			return ob_get_clean();
+		}
+
+		$categories = GSFM_Products::get_categories();
 		ob_start();
-		require GSFM_DIR . 'public/views/shop.php';
+		require GSFM_DIR . 'public/views/categories.php';
 		return ob_get_clean();
 	}
 
