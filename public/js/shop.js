@@ -83,6 +83,20 @@
 	}
 	$(initAccess);
 
+	// Load the member's request panel via AJAX (cache/Elementor-proof).
+	function loadMyRequests() {
+		var $mount = $('.gsfm-myreq-mount');
+		if (!$mount.length) {
+			return;
+		}
+		$.post(GSFM.ajax, { action: 'gsfm_my_requests', nonce: GSFM.nonce }).done(function (res) {
+			if (res && res.success) {
+				$mount.html(res.data.html || '');
+			}
+		});
+	}
+	$(loadMyRequests);
+
 	$(document).on('click', '.gsfm-toggle', function () {
 		var $btn = $(this);
 		if ($btn.prop('disabled')) {
@@ -108,6 +122,7 @@
 				} else {
 					$btn.removeClass('is-requested').data('requested', '0');
 				}
+				loadMyRequests();
 			} else {
 				window.alert((res && res.data && res.data.message) || 'Something went wrong.');
 			}

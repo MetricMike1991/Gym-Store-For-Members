@@ -23,6 +23,8 @@ class GSFM_Public {
 		add_shortcode( 'gym_logo', array( $this, 'shortcode_logo' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'assets' ) );
 		add_action( 'wp_ajax_gsfm_toggle', array( $this, 'ajax_toggle' ) );
+		add_action( 'wp_ajax_gsfm_my_requests', array( $this, 'ajax_my_requests' ) );
+		add_action( 'wp_ajax_nopriv_gsfm_my_requests', array( $this, 'ajax_my_requests' ) );
 		add_action( 'wp_ajax_nopriv_gsfm_login', array( $this, 'ajax_login' ) );
 		add_action( 'wp_ajax_nopriv_gsfm_register', array( $this, 'ajax_register' ) );
 
@@ -157,15 +159,25 @@ class GSFM_Public {
 	 * @return string
 	 */
 	public function shortcode_my_requests() {
+		// Rendered via AJAX so per-user content is never baked into cached / Elementor HTML.
+		return '<div class="gsfm-myreq-mount" aria-live="polite"></div>';
+	}
+
+	/**
+	 * AJAX: return the current member's requests panel HTML.
+	 */
+	public function ajax_my_requests() {
+		check_ajax_referer( 'gsfm_public', 'nonce' );
+
 		if ( ! is_user_logged_in() ) {
-			return '';
+			wp_send_json_success( array( 'html' => '' ) );
 		}
 
 		$requests = GSFM_Wishlist::get_for_user( get_current_user_id() );
 
 		ob_start();
 		require GSFM_DIR . 'public/views/my-requests.php';
-		return ob_get_clean();
+		wp_send_json_success( array( 'html' => ob_get_clean() ) );
 	}
 
 	/**
