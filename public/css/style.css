@@ -1,0 +1,134 @@
+.gsfm-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: 20px;
+}
+
+.gsfm-card {
+	border: 1px solid #e2e2e2;
+	border-radius: 10px;
+	padding: 16px;
+	text-align: center;
+	display: flex;
+	flex-direction: column;
+	background: #fff;
+}
+
+.gsfm-thumb {
+	height: 160px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 12px;
+}
+
+.gsfm-thumb img {
+	max-width: 100%;
+	max-height: 160px;
+	object-fit: contain;
+}
+
+.gsfm-title {
+	font-size: 15px;
+	line-height: 1.3;
+	margin: 0 0 8px;
+	flex-grow: 1;
+}
+
+.gsfm-price {
+	font-size: 18px;
+	font-weight: 700;
+	margin: 0 0 12px;
+}
+
+.gsfm-btn {
+	display: inline-block;
+	width: 100%;
+	padding: 10px 12px;
+	border: none;
+	border-radius: 6px;
+	background: #1a7f37;
+	color: #fff;
+	font-weight: 600;
+	cursor: pointer;
+	text-decoration: none;
+	box-sizing: border-box;
+}
+
+.gsfm-btn:hover {
+	opacity: 0.92;
+}
+
+.gsfm-btn-login {
+	background: #2271b1;
+}
+
+.gsfm-toggle .gsfm-label-remove {
+	display: none;
+}
+
+.gsfm-toggle.is-requested {
+	background: #b32d2e;
+}
+
+.gsfm-toggle.is-requested .gsfm-label-add {
+	display: none;
+}
+
+.gsfm-toggle.is-requested .gsfm-label-remove {
+	display: inline;
+}
+
+.gsfm-empty {
+	font-style: italic;
+	color: #666;
+}
+
+/* Account table */
+.gsfm-account-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.gsfm-account-table th,
+.gsfm-account-table td {
+	border-bottom: 1px solid #e2e2e2;
+	padding: 10px;
+	text-align: left;
+	vertical-align: middle;
+}
+
+.gsfm-acc-product {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.gsfm-acc-product img {
+	width: 44px;
+	height: 44px;
+	object-fit: contain;
+}
+
+.gsfm-status {
+	display: inline-block;
+	padding: 3px 10px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.gsfm-status-pending {
+	background: #fff3cd;
+	color: #7a5c00;
+}
+
+.gsfm-status-arrived {
+	background: #d1e7dd;
+	color: #0f5132;
+}
+
+.gsfm-status-collected {
+	background: #e2e3e5;
+	color: #41464b;
+}

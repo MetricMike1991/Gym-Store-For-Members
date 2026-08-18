@@ -1,0 +1,10 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Build artifacts
+*.zip
+
+# Logs
+*.log
