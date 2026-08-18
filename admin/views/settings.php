@@ -141,9 +141,61 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</table>
 		</details>
 
-		<p><button class="button button-primary" name="gsfm_save_settings" value="1"><?php esc_html_e( 'Save Settings', 'gym-store-for-members' ); ?></button>
-		<button type="button" id="gsfm-test-btn" class="button" style="margin-left:8px;"><?php esc_html_e( 'Test Connection', 'gym-store-for-members' ); ?></button></p>
+		<p>
+			<button class="button button-primary" name="gsfm_save_settings" value="1"><?php esc_html_e( 'Save Settings', 'gym-store-for-members' ); ?></button>
+			<button type="button" id="gsfm-test-btn" class="button" style="margin-left:8px;"
+				data-ajax="<?php echo esc_attr( admin_url( 'admin-ajax.php' ) ); ?>"
+				data-nonce="<?php echo esc_attr( wp_create_nonce( 'gsfm_admin' ) ); ?>">
+				<?php esc_html_e( 'Test Connection', 'gym-store-for-members' ); ?>
+			</button>
+		</p>
 	</form>
 
 	<div id="gsfm-test-result" style="display:none;margin-top:16px;padding:14px 18px;border-radius:6px;max-width:680px;font-family:monospace;font-size:13px;line-height:1.7;background:#f0f0f1;border:1px solid #c3c4c7;"></div>
+
+	<script>
+	(function() {
+		var btn = document.getElementById('gsfm-test-btn');
+		var out = document.getElementById('gsfm-test-result');
+		if (!btn || !out) { return; }
+		btn.addEventListener('click', function() {
+			out.style.display = 'block';
+			out.style.color   = '#555';
+			out.innerHTML     = 'Fetching&hellip;';
+			var fd = new FormData();
+			fd.append('action', 'gsfm_test_connection');
+			fd.append('nonce',  btn.dataset.nonce);
+			fetch(btn.dataset.ajax, { method: 'POST', credentials: 'same-origin', body: fd })
+				.then(function(r) { return r.json(); })
+				.then(function(res) {
+					if (!res || !res.success) {
+						out.style.color = '#b32d2e';
+						out.textContent = (res && res.data && res.data.message) || 'Test failed.';
+						return;
+					}
+					var d = res.data;
+					var lines = [
+						'URL:           ' + d.url,
+						'HTTP status:   ' + d.http_status,
+						'Page title:    ' + d.page_title,
+						'Cookie set:    ' + (d.cookie_set ? 'Yes' : 'No — paste session cookie first'),
+						'Login wall:    ' + (d.login_wall ? '⚠ YES — cookie not accepted or expired' : 'No ✓'),
+						'Links found:   ' + d.total_links,
+						'Product links: ' + d.product_links + (d.product_links === 0 ? '  ← check product link pattern' : ' ✓'),
+					];
+					if (d.sample_products && d.sample_products.length) {
+						lines.push('');
+						lines.push('Sample product URLs:');
+						d.sample_products.forEach(function(u) { lines.push('  ' + u); });
+					}
+					out.style.color = (!d.login_wall && d.product_links > 0) ? '#1a7f37' : '#7a5c00';
+					out.innerHTML   = lines.join('<br>');
+				})
+				.catch(function(e) {
+					out.style.color = '#b32d2e';
+					out.textContent = 'Network error: ' + e;
+				});
+		});
+	})();
+	</script>
 </div>
