@@ -143,21 +143,42 @@ class GSFM_Scraper {
 	/**
 	 * Authenticate and return session cookies.
 	 *
+	 * Two-step flow: GET the login page to capture cookies and hidden form
+	 * fields (e.g. the WooCommerce login nonce), then POST credentials with them.
+	 *
 	 * @param array $s Settings.
 	 * @return array|WP_Error
 	 */
 	private function login( $s ) {
 		$password = self::decrypt( $s['password_enc'] );
 
+		$get = wp_remote_get(
+			$s['login_url'],
+			array(
+				'timeout'     => 30,
+				'redirection' => 5,
+				'user-agent'  => 'Mozilla/5.0 (compatible; GymStoreBot/1.0)',
+			)
+		);
+		if ( is_wp_error( $get ) ) {
+			return $get;
+		}
+
+		$get_cookies = wp_remote_retrieve_cookies( $get );
+		$fields      = $this->harvest_login_fields( wp_remote_retrieve_body( $get ), $s['password_field'] );
+
+		// Override the credential fields with the real values.
+		$fields[ $s['username_field'] ] = $s['username'];
+		$fields[ $s['password_field'] ] = $password;
+
 		$response = wp_remote_post(
 			$s['login_url'],
 			array(
 				'timeout'     => 30,
 				'redirection' => 5,
-				'body'        => array(
-					$s['username_field'] => $s['username'],
-					$s['password_field'] => $password,
-				),
+				'cookies'     => $get_cookies,
+				'user-agent'  => 'Mozilla/5.0 (compatible; GymStoreBot/1.0)',
+				'body'        => $fields,
 			)
 		);
 
@@ -165,12 +186,97 @@ class GSFM_Scraper {
 			return $response;
 		}
 
-		$cookies = wp_remote_retrieve_cookies( $response );
+		$cookies = $this->merge_cookies( $get_cookies, wp_remote_retrieve_cookies( $response ) );
 		if ( empty( $cookies ) ) {
 			return new WP_Error( 'gsfm_login', __( 'Login returned no session cookies. Check the login URL and field names.', 'gym-store-for-members' ) );
 		}
 
 		return $cookies;
+	}
+
+	/**
+	 * Collect all input/button fields from the form containing the password field.
+	 *
+	 * @param string $html           Login page HTML.
+	 * @param string $password_field Password input name used to locate the form.
+	 * @return array name => value
+	 */
+	private function harvest_login_fields( $html, $password_field ) {
+		$fields = array();
+
+		$doc = new DOMDocument();
+		libxml_use_internal_errors( true );
+		$doc->loadHTML( $html );
+		libxml_clear_errors();
+
+		$xpath = new DOMXPath( $doc );
+		$forms = $xpath->query( '//form' );
+		if ( ! $forms ) {
+			return $fields;
+		}
+
+		$target = null;
+		foreach ( $forms as $form ) {
+			$pw = $xpath->query( ".//input[@name=" . $this->xpath_literal( $password_field ) . "]", $form );
+			if ( $pw && $pw->length ) {
+				$target = $form;
+				break;
+			}
+		}
+		if ( ! $target ) {
+			return $fields;
+		}
+
+		$inputs = $xpath->query( './/input | .//button', $target );
+		foreach ( $inputs as $input ) {
+			if ( ! $input instanceof DOMElement ) {
+				continue;
+			}
+			$name = $input->getAttribute( 'name' );
+			if ( '' === $name ) {
+				continue;
+			}
+			$type = strtolower( $input->getAttribute( 'type' ) );
+			if ( 'checkbox' === $type && ! $input->hasAttribute( 'checked' ) ) {
+				continue;
+			}
+			$fields[ $name ] = $input->getAttribute( 'value' );
+		}
+
+		return $fields;
+	}
+
+	/**
+	 * Merge two cookie arrays, later cookies winning by name.
+	 *
+	 * @param array $a First cookie set.
+	 * @param array $b Second cookie set.
+	 * @return array
+	 */
+	private function merge_cookies( $a, $b ) {
+		$merged = array();
+		foreach ( array_merge( (array) $a, (array) $b ) as $cookie ) {
+			if ( is_object( $cookie ) && isset( $cookie->name ) ) {
+				$merged[ $cookie->name ] = $cookie;
+			}
+		}
+		return array_values( $merged );
+	}
+
+	/**
+	 * Escape a string for safe use as an XPath string literal.
+	 *
+	 * @param string $value Raw value.
+	 * @return string
+	 */
+	private function xpath_literal( $value ) {
+		if ( false === strpos( $value, "'" ) ) {
+			return "'" . $value . "'";
+		}
+		if ( false === strpos( $value, '"' ) ) {
+			return '"' . $value . '"';
+		}
+		return "concat('" . str_replace( "'", "',\"'\",'", $value ) . "')";
 	}
 
 	/**
