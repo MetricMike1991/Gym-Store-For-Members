@@ -118,6 +118,38 @@
 		});
 	});
 
+	// Remove an item directly from the "YOUR list" summary.
+	$(document).on('click', '.gsfm-myreq-remove', function () {
+		var $btn = $(this);
+		var $item = $btn.closest('.gsfm-myreq-item');
+		var productId = $btn.data('product');
+		$btn.prop('disabled', true);
+
+		$.post(GSFM.ajax, {
+			action: 'gsfm_toggle',
+			nonce: GSFM.nonce,
+			product_id: productId,
+			want: 0
+		}).done(function (res) {
+			if (res && res.success) {
+				var $wrap = $item.closest('.gsfm-myreq');
+				$item.remove();
+				// Keep any matching shop button in sync.
+				$('.gsfm-toggle[data-product="' + productId + '"]').removeClass('is-requested').data('requested', '0');
+				if (!$wrap.find('.gsfm-myreq-item').length) {
+					$wrap.find('.gsfm-myreq-list').hide();
+					$wrap.find('.gsfm-myreq-empty').show();
+				}
+			} else {
+				window.alert((res && res.data && res.data.message) || 'Could not remove that.');
+				$btn.prop('disabled', false);
+			}
+		}).fail(function () {
+			window.alert('Network error. Please try again.');
+			$btn.prop('disabled', false);
+		});
+	});
+
 	// Confirmation popup shown after a member requests an item.
 	function showConfirm(mode) {
 		var content = (mode === 'vending')

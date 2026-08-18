@@ -424,6 +424,32 @@
 	color: #5b21b6;
 }
 
+.gsfm-myreq-remove {
+	flex-shrink: 0;
+	width: 26px;
+	height: 26px;
+	line-height: 1;
+	border: none;
+	border-radius: 50%;
+	background: #f0d4d4;
+	color: #b32d2e;
+	font-size: 18px;
+	font-weight: 700;
+	cursor: pointer;
+	padding: 0;
+}
+
+.gsfm-myreq-remove:hover {
+	background: #b32d2e;
+	color: #fff;
+}
+
+.gsfm-myreq-empty {
+	margin: 4px 0 0;
+	font-size: 14px;
+	color: #55657a;
+}
+
 /* Confirmation modal */
 .gsfm-modal-overlay {
 	position: fixed;

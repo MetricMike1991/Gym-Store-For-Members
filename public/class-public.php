@@ -162,9 +162,6 @@ class GSFM_Public {
 		}
 
 		$requests = GSFM_Wishlist::get_for_user( get_current_user_id() );
-		if ( empty( $requests ) ) {
-			return '';
-		}
 
 		ob_start();
 		require GSFM_DIR . 'public/views/my-requests.php';

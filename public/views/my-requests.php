@@ -12,11 +12,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 ?>
 <div class="gsfm-myreq">
 	<h3 class="gsfm-myreq-title"><?php esc_html_e( 'YOUR list — items you\'ve asked us to bring in', 'gym-store-for-members' ); ?></h3>
-	<p class="gsfm-myreq-sub"><?php esc_html_e( 'These are your personal requests for the next order. Manage them from the shop above.', 'gym-store-for-members' ); ?></p>
-	<ul class="gsfm-myreq-list">
+	<p class="gsfm-myreq-sub"><?php esc_html_e( 'These are your personal requests for the next order. Remove anything you no longer want.', 'gym-store-for-members' ); ?></p>
+
+	<ul class="gsfm-myreq-list"<?php echo empty( $requests ) ? ' style="display:none;"' : ''; ?>>
 		<?php foreach ( $requests as $r ) : ?>
 			<?php $mode = ( isset( $r->request_mode ) && 'vending' === $r->request_mode ) ? 'vending' : 'order'; ?>
-			<li class="gsfm-myreq-item">
+			<li class="gsfm-myreq-item" data-product="<?php echo esc_attr( $r->product_id ); ?>">
 				<span class="gsfm-myreq-thumb">
 					<?php if ( $r->image_url ) : ?>
 						<img src="<?php echo esc_url( $r->image_url ); ?>" alt="" />
@@ -27,7 +28,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<?php echo 'vending' === $mode ? esc_html__( 'Vending', 'gym-store-for-members' ) : esc_html__( 'Order', 'gym-store-for-members' ); ?>
 				</span>
 				<span class="gsfm-status gsfm-status-<?php echo esc_attr( $r->status ); ?>"><?php echo esc_html( ucfirst( $r->status ) ); ?></span>
+				<button type="button" class="gsfm-myreq-remove" data-product="<?php echo esc_attr( $r->product_id ); ?>" aria-label="<?php esc_attr_e( 'Remove from my list', 'gym-store-for-members' ); ?>" title="<?php esc_attr_e( 'Remove', 'gym-store-for-members' ); ?>">&times;</button>
 			</li>
 		<?php endforeach; ?>
 	</ul>
+
+	<p class="gsfm-myreq-empty"<?php echo empty( $requests ) ? '' : ' style="display:none;"'; ?>>
+		<?php esc_html_e( 'You haven\'t added anything yet. Browse the shop above and tap a product to add it here.', 'gym-store-for-members' ); ?>
+	</p>
 </div>
