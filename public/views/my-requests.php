@@ -25,7 +25,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</span>
 				<span class="gsfm-myreq-name"><?php echo esc_html( $r->title ); ?></span>
 				<span class="gsfm-myreq-type gsfm-myreq-type-<?php echo esc_attr( $mode ); ?>">
-					<?php echo 'vending' === $mode ? esc_html__( 'Vending', 'gym-store-for-members' ) : esc_html__( 'Order', 'gym-store-for-members' ); ?>
+					<?php echo 'vending' === $mode
+						? esc_html__( 'I want you to get this into the vending machine', 'gym-store-for-members' )
+						: esc_html__( 'Please get this product in for me in the next order and I will buy it', 'gym-store-for-members' ); ?>
 				</span>
 				<span class="gsfm-status gsfm-status-<?php echo esc_attr( $r->status ); ?>"><?php echo esc_html( ucfirst( $r->status ) ); ?></span>
 				<button type="button" class="gsfm-myreq-remove" data-product="<?php echo esc_attr( $r->product_id ); ?>" aria-label="<?php esc_attr_e( 'Remove from my list', 'gym-store-for-members' ); ?>" title="<?php esc_attr_e( 'Remove', 'gym-store-for-members' ); ?>">&times;</button>
