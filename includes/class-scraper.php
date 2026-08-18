@@ -1,6 +1,11 @@
 <?php
 /**
- * Supplier scraper: login, fetch listing pages, parse, upsert products.
+ * Supplier scraper.
+ *
+ * Preferred flow: paste a logged-in session cookie + a list of category URLs.
+ * The crawler discovers product links, visits each product page, and extracts
+ * data using structured sources first (JSON-LD, OpenGraph), then an optional
+ * OpenAI fallback, then legacy XPath. This keeps it robust and supplier-agnostic.
  *
  * @package GymStoreForMembers
  */
@@ -11,6 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class GSFM_Scraper {
 
+	const UA = 'Mozilla/5.0 (compatible; GymStoreBot/1.0)';
+
 	/**
 	 * Default settings shape.
 	 *
@@ -18,21 +25,33 @@ class GSFM_Scraper {
 	 */
 	public static function default_settings() {
 		return array(
-			'login_url'        => '',
-			'listing_url'      => '',
-			'pages'            => 1,
-			'page_param'       => 'page',
-			'username_field'   => 'username',
-			'password_field'   => 'password',
-			'username'         => '',
-			'password_enc'     => '',
-			'xpath_item'       => "//li[contains(concat(' ', normalize-space(@class), ' '), ' product ') and contains(@class,'type-product')]",
-			'xpath_title'      => './/h2 | .//h3',
-			'xpath_image'      => './/img',
-			'xpath_price'      => ".//span[contains(@class,'price')]",
-			'xpath_stock'      => '',
-			'xpath_ref'        => '',
-			'in_stock_text'    => '',
+			// Preferred: manual-login session + category crawl.
+			'session_cookie'       => '',
+			'category_urls'        => '',
+			'product_link_pattern' => '/product/',
+			'max_pages'            => 20,
+
+			// Optional AI fallback.
+			'use_ai'               => 0,
+			'openai_key_enc'       => '',
+			'openai_model'         => 'gpt-4o-mini',
+
+			// Legacy: programmatic login + listing XPath (fallback only).
+			'login_url'            => '',
+			'listing_url'          => '',
+			'pages'                => 1,
+			'page_param'           => 'page',
+			'username_field'       => 'username',
+			'password_field'       => 'password',
+			'username'             => '',
+			'password_enc'         => '',
+			'xpath_item'           => "//li[contains(concat(' ', normalize-space(@class), ' '), ' product ') and contains(@class,'type-product')]",
+			'xpath_title'          => './/h2 | .//h3',
+			'xpath_image'          => './/img',
+			'xpath_price'          => ".//span[contains(@class,'price')]",
+			'xpath_stock'          => '',
+			'xpath_ref'            => '',
+			'in_stock_text'        => '',
 		);
 	}
 
@@ -59,7 +78,7 @@ class GSFM_Scraper {
 	 * Encrypt a secret for storage.
 	 *
 	 * @param string $plain Plaintext.
-	 * @return string Base64 iv:cipher.
+	 * @return string
 	 */
 	public static function encrypt( $plain ) {
 		if ( '' === $plain ) {
@@ -73,31 +92,397 @@ class GSFM_Scraper {
 	/**
 	 * Decrypt a stored secret.
 	 *
-	 * @param string $stored Base64 iv:cipher.
+	 * @param string $stored Stored value.
 	 * @return string
 	 */
 	public static function decrypt( $stored ) {
 		if ( '' === $stored ) {
 			return '';
 		}
-		$raw     = base64_decode( $stored );
-		$iv_len  = openssl_cipher_iv_length( 'aes-256-cbc' );
-		$iv      = substr( $raw, 0, $iv_len );
-		$cipher  = substr( $raw, $iv_len );
-		$plain   = openssl_decrypt( $cipher, 'aes-256-cbc', self::key(), OPENSSL_RAW_DATA, $iv );
+		$raw    = base64_decode( $stored );
+		$iv_len = openssl_cipher_iv_length( 'aes-256-cbc' );
+		$iv     = substr( $raw, 0, $iv_len );
+		$cipher = substr( $raw, $iv_len );
+		$plain  = openssl_decrypt( $cipher, 'aes-256-cbc', self::key(), OPENSSL_RAW_DATA, $iv );
 		return false === $plain ? '' : $plain;
 	}
 
 	/**
-	 * Run a full scrape.
+	 * Run a scrape. Uses the category crawl when category URLs are set,
+	 * otherwise falls back to the legacy login + listing scrape.
 	 *
-	 * @return array|WP_Error Counts on success.
+	 * @return array|WP_Error
 	 */
 	public function run() {
-		$s = self::get_settings();
+		$s          = self::get_settings();
+		$categories = $this->lines( $s['category_urls'] );
 
+		if ( ! empty( $categories ) ) {
+			return $this->run_crawl( $s, $categories );
+		}
+
+		return $this->run_legacy( $s );
+	}
+
+	/**
+	 * Crawl category pages, then extract each product page.
+	 *
+	 * @param array $s          Settings.
+	 * @param array $categories Category URLs.
+	 * @return array|WP_Error
+	 */
+	private function run_crawl( $s, $categories ) {
+		$cookie       = trim( $s['session_cookie'] );
+		$product_urls = array();
+
+		foreach ( $categories as $cat ) {
+			$links        = $this->collect_product_links( $cat, $cookie, $s );
+			$product_urls = array_merge( $product_urls, $links );
+		}
+
+		$product_urls = array_values( array_unique( $product_urls ) );
+
+		if ( empty( $product_urls ) ) {
+			return new WP_Error( 'gsfm_no_products', __( 'No product links found. Check the category URLs, the product link pattern, and that your session cookie is valid.', 'gym-store-for-members' ) );
+		}
+
+		$new     = 0;
+		$updated = 0;
+		$skipped = 0;
+
+		foreach ( $product_urls as $url ) {
+			$html = $this->fetch( $url, $cookie );
+			if ( is_wp_error( $html ) ) {
+				$skipped++;
+				continue;
+			}
+
+			$data = $this->extract_product( $html, $url, $s );
+			if ( empty( $data ) || '' === $data['title'] ) {
+				$skipped++;
+				continue;
+			}
+
+			$before = GSFM_Products::get_by_ref( $data['supplier_ref'] );
+			GSFM_Products::upsert( $data );
+			if ( $before ) {
+				$updated++;
+			} else {
+				$new++;
+			}
+		}
+
+		return array(
+			'seen'    => count( $product_urls ),
+			'new'     => $new,
+			'updated' => $updated,
+			'skipped' => $skipped,
+		);
+	}
+
+	/**
+	 * Discover product links across a category's paginated pages.
+	 *
+	 * @param string $category_url Category URL.
+	 * @param string $cookie       Session cookie header.
+	 * @param array  $s            Settings.
+	 * @return array
+	 */
+	private function collect_product_links( $category_url, $cookie, $s ) {
+		$pattern = $s['product_link_pattern'];
+		$max     = max( 1, (int) $s['max_pages'] );
+		$links   = array();
+		$visited = array();
+		$queue   = array( $category_url );
+
+		while ( ! empty( $queue ) && count( $visited ) < $max ) {
+			$url = array_shift( $queue );
+			if ( isset( $visited[ $url ] ) ) {
+				continue;
+			}
+			$visited[ $url ] = true;
+
+			$html = $this->fetch( $url, $cookie );
+			if ( is_wp_error( $html ) ) {
+				continue;
+			}
+
+			foreach ( $this->find_links( $html, $url ) as $href ) {
+				if ( false !== strpos( $href, $pattern ) ) {
+					$links[ $href ] = true;
+				}
+			}
+
+			$next = $this->find_next_page( $html, $url );
+			if ( $next && ! isset( $visited[ $next ] ) ) {
+				$queue[] = $next;
+			}
+		}
+
+		return array_keys( $links );
+	}
+
+	/**
+	 * Extract a product using structured sources first, then fallbacks.
+	 *
+	 * @param string $html Product page HTML.
+	 * @param string $url  Product URL (stable reference).
+	 * @param array  $s    Settings.
+	 * @return array|null
+	 */
+	private function extract_product( $html, $url, $s ) {
+		$data = $this->extract_jsonld( $html );
+
+		if ( empty( $data ) ) {
+			$data = $this->extract_opengraph( $html );
+		}
+
+		if ( empty( $data ) && ! empty( $s['use_ai'] ) ) {
+			$data = $this->extract_ai( $html, $s );
+		}
+
+		if ( empty( $data ) ) {
+			return null;
+		}
+
+		// Prefer SKU as the stable key, else the product URL.
+		$data['supplier_ref'] = ! empty( $data['sku'] ) ? $data['sku'] : $url;
+		return $data;
+	}
+
+	/**
+	 * Extract from schema.org JSON-LD Product data.
+	 *
+	 * @param string $html HTML.
+	 * @return array|null
+	 */
+	private function extract_jsonld( $html ) {
+		$doc = $this->dom( $html );
+		if ( ! $doc ) {
+			return null;
+		}
+		$xpath = new DOMXPath( $doc );
+		$nodes = $xpath->query( "//script[@type='application/ld+json']" );
+		if ( ! $nodes ) {
+			return null;
+		}
+
+		foreach ( $nodes as $node ) {
+			$json = json_decode( trim( $node->textContent ), true );
+			if ( null === $json ) {
+				continue;
+			}
+			$product = $this->find_product_node( $json );
+			if ( $product ) {
+				return $this->normalize_jsonld( $product );
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Recursively locate a Product node within decoded JSON-LD.
+	 *
+	 * @param mixed $json Decoded JSON.
+	 * @return array|null
+	 */
+	private function find_product_node( $json ) {
+		if ( ! is_array( $json ) ) {
+			return null;
+		}
+
+		if ( isset( $json['@type'] ) ) {
+			$type = is_array( $json['@type'] ) ? $json['@type'] : array( $json['@type'] );
+			if ( in_array( 'Product', $type, true ) ) {
+				return $json;
+			}
+		}
+
+		if ( isset( $json['@graph'] ) && is_array( $json['@graph'] ) ) {
+			foreach ( $json['@graph'] as $item ) {
+				$found = $this->find_product_node( $item );
+				if ( $found ) {
+					return $found;
+				}
+			}
+		}
+
+		// A bare list of nodes.
+		foreach ( $json as $item ) {
+			if ( is_array( $item ) ) {
+				$found = $this->find_product_node( $item );
+				if ( $found ) {
+					return $found;
+				}
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Normalize a JSON-LD Product node to our product shape.
+	 *
+	 * @param array $p Product node.
+	 * @return array
+	 */
+	private function normalize_jsonld( $p ) {
+		$title = isset( $p['name'] ) ? (string) $p['name'] : '';
+
+		$image = '';
+		if ( isset( $p['image'] ) ) {
+			$img = $p['image'];
+			if ( is_array( $img ) ) {
+				$img = isset( $img['url'] ) ? $img['url'] : reset( $img );
+			}
+			if ( is_array( $img ) ) {
+				$img = isset( $img['url'] ) ? $img['url'] : '';
+			}
+			$image = (string) $img;
+		}
+
+		$price     = 0.0;
+		$in_stock  = true;
+		if ( isset( $p['offers'] ) ) {
+			$offers = $p['offers'];
+			if ( isset( $offers[0] ) ) {
+				$offers = $offers[0];
+			}
+			if ( isset( $offers['price'] ) ) {
+				$price = $this->parse_price( (string) $offers['price'] );
+			} elseif ( isset( $offers['lowPrice'] ) ) {
+				$price = $this->parse_price( (string) $offers['lowPrice'] );
+			}
+			if ( isset( $offers['availability'] ) ) {
+				$in_stock = false !== stripos( (string) $offers['availability'], 'InStock' );
+			}
+		}
+
+		return array(
+			'title'          => trim( $title ),
+			'image_url'      => $image,
+			'supplier_price' => $price,
+			'in_stock'       => $in_stock,
+			'sku'            => isset( $p['sku'] ) ? (string) $p['sku'] : '',
+		);
+	}
+
+	/**
+	 * Extract from OpenGraph / product meta tags.
+	 *
+	 * @param string $html HTML.
+	 * @return array|null
+	 */
+	private function extract_opengraph( $html ) {
+		$doc = $this->dom( $html );
+		if ( ! $doc ) {
+			return null;
+		}
+		$xpath = new DOMXPath( $doc );
+
+		$meta = function ( $prop ) use ( $xpath ) {
+			$n = $xpath->query( "//meta[@property=" . $this->xpath_literal( $prop ) . "]/@content | //meta[@name=" . $this->xpath_literal( $prop ) . "]/@content" );
+			return ( $n && $n->length ) ? trim( $n->item( 0 )->nodeValue ) : '';
+		};
+
+		$title = $meta( 'og:title' );
+		if ( '' === $title ) {
+			return null;
+		}
+
+		$availability = $meta( 'product:availability' );
+		if ( '' === $availability ) {
+			$availability = $meta( 'og:availability' );
+		}
+
+		return array(
+			'title'          => $title,
+			'image_url'      => $meta( 'og:image' ),
+			'supplier_price' => $this->parse_price( $meta( 'product:price:amount' ) ),
+			'in_stock'       => '' === $availability ? true : false === stripos( $availability, 'out' ),
+			'sku'            => $meta( 'product:retailer_item_id' ),
+		);
+	}
+
+	/**
+	 * Optional OpenAI fallback extraction.
+	 *
+	 * @param string $html HTML.
+	 * @param array  $s    Settings.
+	 * @return array|null
+	 */
+	private function extract_ai( $html, $s ) {
+		$key = self::decrypt( $s['openai_key_enc'] );
+		if ( '' === $key ) {
+			return null;
+		}
+
+		$text = $this->readable_text( $html );
+		if ( '' === $text ) {
+			return null;
+		}
+
+		$body = array(
+			'model'           => $s['openai_model'] ? $s['openai_model'] : 'gpt-4o-mini',
+			'temperature'     => 0,
+			'response_format' => array( 'type' => 'json_object' ),
+			'messages'        => array(
+				array(
+					'role'    => 'system',
+					'content' => 'Extract product data from the page text. Reply ONLY with JSON: {"title": string, "price": number, "currency": string, "image_url": string, "in_stock": boolean, "sku": string}. Use the price shown on the page; if none is visible, set price to 0.',
+				),
+				array(
+					'role'    => 'user',
+					'content' => $text,
+				),
+			),
+		);
+
+		$response = wp_remote_post(
+			'https://api.openai.com/v1/chat/completions',
+			array(
+				'timeout' => 45,
+				'headers' => array(
+					'Authorization' => 'Bearer ' . $key,
+					'Content-Type'  => 'application/json',
+				),
+				'body'    => wp_json_encode( $body ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return null;
+		}
+
+		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( empty( $decoded['choices'][0]['message']['content'] ) ) {
+			return null;
+		}
+
+		$parsed = json_decode( $decoded['choices'][0]['message']['content'], true );
+		if ( empty( $parsed['title'] ) ) {
+			return null;
+		}
+
+		return array(
+			'title'          => (string) $parsed['title'],
+			'image_url'      => isset( $parsed['image_url'] ) ? (string) $parsed['image_url'] : '',
+			'supplier_price' => isset( $parsed['price'] ) ? (float) $parsed['price'] : 0,
+			'in_stock'       => isset( $parsed['in_stock'] ) ? (bool) $parsed['in_stock'] : true,
+			'sku'            => isset( $parsed['sku'] ) ? (string) $parsed['sku'] : '',
+		);
+	}
+
+	/**
+	 * Legacy login + listing XPath scrape.
+	 *
+	 * @param array $s Settings.
+	 * @return array|WP_Error
+	 */
+	private function run_legacy( $s ) {
 		if ( empty( $s['listing_url'] ) || empty( $s['xpath_item'] ) ) {
-			return new WP_Error( 'gsfm_config', __( 'Listing URL and product item selector are required.', 'gym-store-for-members' ) );
+			return new WP_Error( 'gsfm_config', __( 'Add category URLs (recommended) or configure the legacy listing URL and selectors.', 'gym-store-for-members' ) );
 		}
 
 		$cookies = array();
@@ -115,13 +500,12 @@ class GSFM_Scraper {
 
 		for ( $page = 1; $page <= $pages; $page++ ) {
 			$url  = $this->page_url( $s['listing_url'], $s['page_param'], $page );
-			$html = $this->fetch( $url, $cookies );
+			$html = $this->fetch( $url, '', $cookies );
 			if ( is_wp_error( $html ) ) {
 				return $html;
 			}
 
-			$items = $this->parse( $html, $s );
-			foreach ( $items as $item ) {
+			foreach ( $this->parse_listing( $html, $s ) as $item ) {
 				$seen++;
 				$before = GSFM_Products::get_by_ref( $item['supplier_ref'] );
 				GSFM_Products::upsert( $item );
@@ -137,14 +521,12 @@ class GSFM_Scraper {
 			'seen'    => $seen,
 			'new'     => $new,
 			'updated' => $updated,
+			'skipped' => 0,
 		);
 	}
 
 	/**
-	 * Authenticate and return session cookies.
-	 *
-	 * Two-step flow: GET the login page to capture cookies and hidden form
-	 * fields (e.g. the WooCommerce login nonce), then POST credentials with them.
+	 * Two-step programmatic login (legacy path).
 	 *
 	 * @param array $s Settings.
 	 * @return array|WP_Error
@@ -157,7 +539,7 @@ class GSFM_Scraper {
 			array(
 				'timeout'     => 30,
 				'redirection' => 5,
-				'user-agent'  => 'Mozilla/5.0 (compatible; GymStoreBot/1.0)',
+				'user-agent'  => self::UA,
 			)
 		);
 		if ( is_wp_error( $get ) ) {
@@ -167,7 +549,6 @@ class GSFM_Scraper {
 		$get_cookies = wp_remote_retrieve_cookies( $get );
 		$fields      = $this->harvest_login_fields( wp_remote_retrieve_body( $get ), $s['password_field'] );
 
-		// Override the credential fields with the real values.
 		$fields[ $s['username_field'] ] = $s['username'];
 		$fields[ $s['password_field'] ] = $password;
 
@@ -177,11 +558,10 @@ class GSFM_Scraper {
 				'timeout'     => 30,
 				'redirection' => 5,
 				'cookies'     => $get_cookies,
-				'user-agent'  => 'Mozilla/5.0 (compatible; GymStoreBot/1.0)',
+				'user-agent'  => self::UA,
 				'body'        => $fields,
 			)
 		);
-
 		if ( is_wp_error( $response ) ) {
 			return $response;
 		}
@@ -195,19 +575,18 @@ class GSFM_Scraper {
 	}
 
 	/**
-	 * Collect all input/button fields from the form containing the password field.
+	 * Collect input/button fields from the form containing the password field.
 	 *
-	 * @param string $html           Login page HTML.
-	 * @param string $password_field Password input name used to locate the form.
-	 * @return array name => value
+	 * @param string $html           HTML.
+	 * @param string $password_field Password field name.
+	 * @return array
 	 */
 	private function harvest_login_fields( $html, $password_field ) {
 		$fields = array();
-
-		$doc = new DOMDocument();
-		libxml_use_internal_errors( true );
-		$doc->loadHTML( $html );
-		libxml_clear_errors();
+		$doc    = $this->dom( $html );
+		if ( ! $doc ) {
+			return $fields;
+		}
 
 		$xpath = new DOMXPath( $doc );
 		$forms = $xpath->query( '//form' );
@@ -247,97 +626,18 @@ class GSFM_Scraper {
 	}
 
 	/**
-	 * Merge two cookie arrays, later cookies winning by name.
-	 *
-	 * @param array $a First cookie set.
-	 * @param array $b Second cookie set.
-	 * @return array
-	 */
-	private function merge_cookies( $a, $b ) {
-		$merged = array();
-		foreach ( array_merge( (array) $a, (array) $b ) as $cookie ) {
-			if ( is_object( $cookie ) && isset( $cookie->name ) ) {
-				$merged[ $cookie->name ] = $cookie;
-			}
-		}
-		return array_values( $merged );
-	}
-
-	/**
-	 * Escape a string for safe use as an XPath string literal.
-	 *
-	 * @param string $value Raw value.
-	 * @return string
-	 */
-	private function xpath_literal( $value ) {
-		if ( false === strpos( $value, "'" ) ) {
-			return "'" . $value . "'";
-		}
-		if ( false === strpos( $value, '"' ) ) {
-			return '"' . $value . '"';
-		}
-		return "concat('" . str_replace( "'", "',\"'\",'", $value ) . "')";
-	}
-
-	/**
-	 * Fetch a page with optional session cookies.
-	 *
-	 * @param string $url     URL.
-	 * @param array  $cookies Session cookies.
-	 * @return string|WP_Error
-	 */
-	private function fetch( $url, $cookies ) {
-		$response = wp_remote_get(
-			$url,
-			array(
-				'timeout'     => 30,
-				'redirection' => 5,
-				'cookies'     => $cookies,
-				'user-agent'  => 'Mozilla/5.0 (compatible; GymStoreBot/1.0)',
-			)
-		);
-
-		if ( is_wp_error( $response ) ) {
-			return $response;
-		}
-
-		$code = wp_remote_retrieve_response_code( $response );
-		if ( $code < 200 || $code >= 300 ) {
-			return new WP_Error( 'gsfm_fetch', sprintf( /* translators: %d: HTTP status */ __( 'Fetch failed with HTTP %d.', 'gym-store-for-members' ), $code ) );
-		}
-
-		return wp_remote_retrieve_body( $response );
-	}
-
-	/**
-	 * Build a paginated URL.
-	 *
-	 * @param string $base  Listing URL.
-	 * @param string $param Page query parameter.
-	 * @param int    $page  Page number.
-	 * @return string
-	 */
-	private function page_url( $base, $param, $page ) {
-		if ( $page <= 1 ) {
-			return $base;
-		}
-		return add_query_arg( $param, $page, $base );
-	}
-
-	/**
-	 * Parse a listing page into product rows.
+	 * Parse a WooCommerce listing page (legacy).
 	 *
 	 * @param string $html HTML.
 	 * @param array  $s    Settings.
 	 * @return array
 	 */
-	private function parse( $html, $s ) {
+	private function parse_listing( $html, $s ) {
 		$items = array();
-
-		$doc = new DOMDocument();
-		libxml_use_internal_errors( true );
-		$doc->loadHTML( $html );
-		libxml_clear_errors();
+		$doc   = $this->dom( $html );
+		if ( ! $doc ) {
+			return $items;
+		}
 
 		$xpath = new DOMXPath( $doc );
 		$nodes = $xpath->query( $s['xpath_item'] );
@@ -372,9 +672,9 @@ class GSFM_Scraper {
 	 * Determine stock from the WooCommerce product class, then optional text.
 	 *
 	 * @param DOMXPath $xpath      XPath.
-	 * @param DOMNode  $node       Product item node.
+	 * @param DOMNode  $node       Product node.
 	 * @param array    $s          Settings.
-	 * @param string   $item_class Product item class attribute.
+	 * @param string   $item_class Class attribute.
 	 * @return bool
 	 */
 	private function resolve_stock( $xpath, $node, $s, $item_class ) {
@@ -394,11 +694,11 @@ class GSFM_Scraper {
 	}
 
 	/**
-	 * Resolve a stable product reference: explicit SKU, WooCommerce post ID, then title hash.
+	 * Resolve a stable ref: SKU text, WooCommerce post ID, then title hash.
 	 *
-	 * @param string $ref        Extracted SKU/ref text.
-	 * @param string $item_class Product item class attribute.
-	 * @param string $title      Product title.
+	 * @param string $ref        Ref text.
+	 * @param string $item_class Class attribute.
+	 * @param string $title      Title.
 	 * @return string
 	 */
 	private function resolve_ref( $ref, $item_class, $title ) {
@@ -412,7 +712,167 @@ class GSFM_Scraper {
 	}
 
 	/**
-	 * Extract trimmed text content relative to a node.
+	 * Fetch a URL with an optional raw cookie header or WP cookie objects.
+	 *
+	 * @param string $url        URL.
+	 * @param string $cookie     Raw Cookie header value.
+	 * @param array  $wp_cookies WP cookie objects (legacy login).
+	 * @return string|WP_Error
+	 */
+	private function fetch( $url, $cookie = '', $wp_cookies = array() ) {
+		$args = array(
+			'timeout'     => 30,
+			'redirection' => 5,
+			'user-agent'  => self::UA,
+		);
+		if ( '' !== $cookie ) {
+			$args['headers'] = array( 'Cookie' => $cookie );
+		}
+		if ( ! empty( $wp_cookies ) ) {
+			$args['cookies'] = $wp_cookies;
+		}
+
+		$response = wp_remote_get( $url, $args );
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$code = wp_remote_retrieve_response_code( $response );
+		if ( $code < 200 || $code >= 300 ) {
+			return new WP_Error( 'gsfm_fetch', sprintf( /* translators: %d: HTTP status */ __( 'Fetch failed with HTTP %d.', 'gym-store-for-members' ), $code ) );
+		}
+
+		return wp_remote_retrieve_body( $response );
+	}
+
+	/**
+	 * All absolute link hrefs on a page.
+	 *
+	 * @param string $html HTML.
+	 * @param string $base Base URL for resolving relatives.
+	 * @return array
+	 */
+	private function find_links( $html, $base ) {
+		$out = array();
+		$doc = $this->dom( $html );
+		if ( ! $doc ) {
+			return $out;
+		}
+		$xpath = new DOMXPath( $doc );
+		$nodes = $xpath->query( '//a[@href]' );
+		if ( ! $nodes ) {
+			return $out;
+		}
+		foreach ( $nodes as $node ) {
+			$href = $this->absolute_url( trim( $node->getAttribute( 'href' ) ), $base );
+			if ( '' !== $href ) {
+				$out[] = $href;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Find a "next page" link on a listing page.
+	 *
+	 * @param string $html HTML.
+	 * @param string $base Base URL.
+	 * @return string
+	 */
+	private function find_next_page( $html, $base ) {
+		$doc = $this->dom( $html );
+		if ( ! $doc ) {
+			return '';
+		}
+		$xpath = new DOMXPath( $doc );
+		$q     = "//a[@rel='next']/@href | //link[@rel='next']/@href | //a[contains(@class,'next')]/@href | //li[contains(@class,'next')]/a/@href";
+		$nodes = $xpath->query( $q );
+		if ( $nodes && $nodes->length ) {
+			return $this->absolute_url( trim( $nodes->item( 0 )->nodeValue ), $base );
+		}
+		return '';
+	}
+
+	/**
+	 * Resolve a possibly-relative URL against a base.
+	 *
+	 * @param string $href Href.
+	 * @param string $base Base URL.
+	 * @return string
+	 */
+	private function absolute_url( $href, $base ) {
+		if ( '' === $href || 0 === strpos( $href, '#' ) || 0 === stripos( $href, 'javascript:' ) || 0 === stripos( $href, 'mailto:' ) ) {
+			return '';
+		}
+		if ( preg_match( '#^https?://#i', $href ) ) {
+			return $href;
+		}
+
+		$parts = wp_parse_url( $base );
+		if ( empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+			return '';
+		}
+		$origin = $parts['scheme'] . '://' . $parts['host'];
+
+		if ( 0 === strpos( $href, '//' ) ) {
+			return $parts['scheme'] . ':' . $href;
+		}
+		if ( 0 === strpos( $href, '/' ) ) {
+			return $origin . $href;
+		}
+
+		$path = isset( $parts['path'] ) ? preg_replace( '#/[^/]*$#', '/', $parts['path'] ) : '/';
+		return $origin . $path . $href;
+	}
+
+	/**
+	 * Build a paginated URL (legacy).
+	 *
+	 * @param string $base  Base URL.
+	 * @param string $param Query parameter.
+	 * @param int    $page  Page number.
+	 * @return string
+	 */
+	private function page_url( $base, $param, $page ) {
+		if ( $page <= 1 ) {
+			return $base;
+		}
+		return add_query_arg( $param, $page, $base );
+	}
+
+	/**
+	 * Load HTML into a DOMDocument.
+	 *
+	 * @param string $html HTML.
+	 * @return DOMDocument|null
+	 */
+	private function dom( $html ) {
+		if ( '' === trim( (string) $html ) ) {
+			return null;
+		}
+		$doc = new DOMDocument();
+		libxml_use_internal_errors( true );
+		$doc->loadHTML( '<?xml encoding="utf-8" ?>' . $html );
+		libxml_clear_errors();
+		return $doc;
+	}
+
+	/**
+	 * Trimmed readable text of the page body for AI input.
+	 *
+	 * @param string $html HTML.
+	 * @return string
+	 */
+	private function readable_text( $html ) {
+		$html = preg_replace( '#<(script|style|noscript)[^>]*>.*?</\1>#is', ' ', $html );
+		$text = wp_strip_all_tags( $html );
+		$text = preg_replace( '/\s+/', ' ', $text );
+		$text = trim( (string) $text );
+		return mb_substr( $text, 0, 6000 );
+	}
+
+	/**
+	 * Extract trimmed text relative to a node.
 	 *
 	 * @param DOMXPath $xpath   XPath.
 	 * @param DOMNode  $context Context node.
@@ -431,11 +891,11 @@ class GSFM_Scraper {
 	}
 
 	/**
-	 * Extract an image src relative to a node.
+	 * Extract an image URL relative to a node (handles lazy-load + srcset).
 	 *
 	 * @param DOMXPath $xpath   XPath.
 	 * @param DOMNode  $context Context node.
-	 * @param string   $query   Relative XPath (should target an img element).
+	 * @param string   $query   Relative XPath.
 	 * @return string
 	 */
 	private function extract_attr( $xpath, $context, $query ) {
@@ -451,7 +911,6 @@ class GSFM_Scraper {
 			return '';
 		}
 
-		// Prefer real source attributes; skip inline data: placeholders used by lazy loaders.
 		foreach ( array( 'data-nectar-img-src', 'data-src', 'data-lazy-src', 'src' ) as $attr ) {
 			if ( $el->hasAttribute( $attr ) ) {
 				$val = trim( $el->getAttribute( $attr ) );
@@ -461,7 +920,6 @@ class GSFM_Scraper {
 			}
 		}
 
-		// Fall back to the first URL in srcset.
 		if ( $el->hasAttribute( 'srcset' ) ) {
 			$srcset = trim( $el->getAttribute( 'srcset' ) );
 			if ( '' !== $srcset ) {
@@ -483,17 +941,60 @@ class GSFM_Scraper {
 	 * @return float
 	 */
 	private function parse_price( $raw ) {
-		$clean = preg_replace( '/[^0-9,.]/', '', $raw );
+		$clean = preg_replace( '/[^0-9,.]/', '', (string) $raw );
 		$clean = str_replace( ',', '.', $clean );
 		if ( '' === $clean ) {
 			return 0.0;
 		}
-		// Keep only the last decimal point if multiple remain.
 		$parts = explode( '.', $clean );
 		if ( count( $parts ) > 2 ) {
 			$dec   = array_pop( $parts );
 			$clean = implode( '', $parts ) . '.' . $dec;
 		}
 		return (float) $clean;
+	}
+
+	/**
+	 * Split a textarea into trimmed non-empty lines.
+	 *
+	 * @param string $text Text.
+	 * @return array
+	 */
+	private function lines( $text ) {
+		$lines = preg_split( '/\r\n|\r|\n/', (string) $text );
+		return array_values( array_filter( array_map( 'trim', $lines ) ) );
+	}
+
+	/**
+	 * Merge two cookie arrays, later winning by name.
+	 *
+	 * @param array $a First set.
+	 * @param array $b Second set.
+	 * @return array
+	 */
+	private function merge_cookies( $a, $b ) {
+		$merged = array();
+		foreach ( array_merge( (array) $a, (array) $b ) as $cookie ) {
+			if ( is_object( $cookie ) && isset( $cookie->name ) ) {
+				$merged[ $cookie->name ] = $cookie;
+			}
+		}
+		return array_values( $merged );
+	}
+
+	/**
+	 * Escape a string for safe use as an XPath literal.
+	 *
+	 * @param string $value Value.
+	 * @return string
+	 */
+	private function xpath_literal( $value ) {
+		if ( false === strpos( $value, "'" ) ) {
+			return "'" . $value . "'";
+		}
+		if ( false === strpos( $value, '"' ) ) {
+			return '"' . $value . '"';
+		}
+		return "concat('" . str_replace( "'", "',\"'\",'", $value ) . "')";
 	}
 }

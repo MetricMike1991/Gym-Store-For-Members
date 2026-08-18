@@ -103,26 +103,33 @@ public/
 
 ## Scraper Flow
 
-1. Admin stores login URL + credentials (AES-256-CBC encrypted) + XPath selectors
-   in `wp_options` via the Settings page.
-2. Admin clicks **Scrape Now** → nonce-protected AJAX → `Scraper::run()`.
-3. `wp_remote_post()` to login form URL, capture session cookie from `Set-Cookie`.
-4. Loop paginated listing pages with `wp_remote_get()` + cookie.
-5. Parse HTML with `DOMDocument` + `DOMXPath` using stored selectors:
-   product container, title, image, price, stock indicator.
-6. Upsert each product into `wp_gss_products` (match on `supplier_ref`).
-7. Return counts (new / updated / out-of-stock) to the admin UI.
+The scraper is **supplier-agnostic** and prefers a manual-login session + category
+crawl. It only falls back to programmatic login + XPath when no category URLs are set.
 
-> **Selectors are admin-configurable** so a supplier layout change needs no code
-> edit. They still need to be identified once by inspecting the live site
-> (DevTools → right-click a product card → Copy → Copy XPath).
+**Primary (recommended):**
+1. Admin logs into the supplier in their browser and pastes the **session cookie**
+   into Settings, plus a list of **category URLs**.
+2. Admin clicks **Scrape Now** → AJAX → `Scraper::run()`.
+3. For each category, the crawler fetches the page (following pagination via
+   `rel=next` / `.next` links up to a cap) and collects links whose URL contains
+   the **product link pattern** (default `/product/`).
+4. Each product page is fetched with the session cookie and extracted using the
+   first strategy that succeeds:
+   - **JSON-LD** schema.org Product (standard, structured, free) ⭐
+   - **OpenGraph** / product meta tags (structured, free)
+   - **OpenAI** fallback (optional, only if enabled + key set)
+5. Products are upserted into `wp_gss_products` keyed on SKU, else product URL.
+
+**Legacy fallback:** two-step programmatic login (harvests the WooCommerce nonce)
++ listing-page XPath selectors. Used only when no category URLs are configured.
 
 ## Security
 
+- Session cookie and OpenAI key stored in options; key + legacy password are
+  AES-256-CBC encrypted. (Session cookie is stored as-is since it is a short-lived
+  bearer token the admin pastes deliberately.)
 - All AJAX + form posts protected by WordPress nonces (CSRF).
 - All DB access via `$wpdb->prepare()` (SQL injection).
-- Credentials encrypted with `openssl_encrypt` AES-256-CBC using a key derived
-  from WP salts; never stored in plaintext.
 - Capability checks (`manage_options`) on every admin action.
 - Output escaped with `esc_html` / `esc_attr` / `esc_url`.
 

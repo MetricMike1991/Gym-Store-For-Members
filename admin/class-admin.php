@@ -112,7 +112,7 @@ class GSFM_Admin {
 	private function save_settings() {
 		$current = GSFM_Scraper::get_settings();
 
-		$fields = array( 'login_url', 'listing_url', 'page_param', 'username_field', 'password_field', 'username', 'xpath_item', 'xpath_title', 'xpath_image', 'xpath_price', 'xpath_stock', 'xpath_ref', 'in_stock_text' );
+		$fields = array( 'product_link_pattern', 'openai_model', 'login_url', 'listing_url', 'page_param', 'username_field', 'password_field', 'username', 'xpath_item', 'xpath_title', 'xpath_image', 'xpath_price', 'xpath_stock', 'xpath_ref', 'in_stock_text' );
 
 		$out = $current;
 		foreach ( $fields as $f ) {
@@ -120,11 +120,26 @@ class GSFM_Admin {
 				$out[ $f ] = sanitize_text_field( wp_unslash( $_POST[ $f ] ) );
 			}
 		}
-		$out['pages'] = isset( $_POST['pages'] ) ? max( 1, (int) $_POST['pages'] ) : 1;
 
-		// Only replace the stored password when a new one is typed.
+		// Multi-line / raw fields.
+		if ( isset( $_POST['category_urls'] ) ) {
+			$out['category_urls'] = sanitize_textarea_field( wp_unslash( $_POST['category_urls'] ) );
+		}
+		if ( isset( $_POST['session_cookie'] ) ) {
+			// Cookie header may contain characters sanitize_text_field would keep; trim only.
+			$out['session_cookie'] = trim( (string) wp_unslash( $_POST['session_cookie'] ) );
+		}
+
+		$out['pages']     = isset( $_POST['pages'] ) ? max( 1, (int) $_POST['pages'] ) : 1;
+		$out['max_pages'] = isset( $_POST['max_pages'] ) ? max( 1, (int) $_POST['max_pages'] ) : 20;
+		$out['use_ai']    = ! empty( $_POST['use_ai'] ) ? 1 : 0;
+
+		// Only replace stored secrets when a new value is typed.
 		if ( ! empty( $_POST['password'] ) ) {
 			$out['password_enc'] = GSFM_Scraper::encrypt( (string) wp_unslash( $_POST['password'] ) );
+		}
+		if ( ! empty( $_POST['openai_key'] ) ) {
+			$out['openai_key_enc'] = GSFM_Scraper::encrypt( trim( (string) wp_unslash( $_POST['openai_key'] ) ) );
 		}
 
 		update_option( 'gsfm_settings', $out );
