@@ -53,6 +53,75 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</tr>
 		</table>
 
+		<h2><?php esc_html_e( '2b. Category Images (optional)', 'gym-store-for-members' ); ?></h2>
+		<p class="description"><?php esc_html_e( 'Set a custom thumbnail for each category. Leave blank to use a product image from that category automatically.', 'gym-store-for-members' ); ?></p>
+
+		<?php
+		$parsed_cats = GSFM_Scraper::parse_category_lines( $s['category_urls'] );
+		$cat_images  = get_option( 'gsfm_cat_images', array() );
+		if ( ! empty( $parsed_cats ) ) :
+		?>
+		<table class="form-table" role="presentation">
+			<?php foreach ( $parsed_cats as $cat ) : ?>
+				<?php $current_img = isset( $cat_images[ $cat['slug'] ] ) ? $cat_images[ $cat['slug'] ] : ''; ?>
+				<tr>
+					<th><?php echo esc_html( $cat['name'] ); ?></th>
+					<td>
+						<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+							<div class="gsfm-cat-preview" style="width:80px;height:80px;border:1px solid #ddd;border-radius:6px;overflow:hidden;background:#f5f5f5;display:flex;align-items:center;justify-content:center;">
+								<?php if ( $current_img ) : ?>
+									<img src="<?php echo esc_url( $current_img ); ?>" style="width:100%;height:80px;object-fit:cover;display:block;" />
+								<?php else : ?>
+									<span style="color:#aaa;font-size:11px;"><?php esc_html_e( 'None', 'gym-store-for-members' ); ?></span>
+								<?php endif; ?>
+							</div>
+							<div>
+								<input type="hidden" name="cat_image[<?php echo esc_attr( $cat['slug'] ); ?>]"
+									   class="gsfm-cat-img-url"
+									   value="<?php echo esc_attr( $current_img ); ?>" />
+								<button type="button" class="button gsfm-cat-img-pick"><?php esc_html_e( 'Choose Image', 'gym-store-for-members' ); ?></button>
+								<?php if ( $current_img ) : ?>
+									<button type="button" class="button gsfm-cat-img-remove" style="margin-left:6px;"><?php esc_html_e( 'Remove', 'gym-store-for-members' ); ?></button>
+								<?php endif; ?>
+							</div>
+						</div>
+					</td>
+				</tr>
+			<?php endforeach; ?>
+		</table>
+		<?php else : ?>
+		<p class="description"><?php esc_html_e( 'Save your category URLs above first, then image pickers will appear here.', 'gym-store-for-members' ); ?></p>
+		<?php endif; ?>
+
+		<script>
+		(function() {
+			document.querySelectorAll('.gsfm-cat-img-pick').forEach(function(btn) {
+				btn.addEventListener('click', function() {
+					var row    = btn.closest('td');
+					var input  = row.querySelector('.gsfm-cat-img-url');
+					var preview = row.querySelector('.gsfm-cat-preview');
+					var frame  = wp.media({ title: 'Choose Category Image', button: { text: 'Use this image' }, multiple: false });
+					frame.on('select', function() {
+						var att = frame.state().get('selection').first().toJSON();
+						input.value = att.url;
+						preview.innerHTML = '<img src="' + att.url + '" style="width:100%;height:80px;object-fit:cover;display:block;" />';
+					});
+					frame.open();
+				});
+			});
+			document.querySelectorAll('.gsfm-cat-img-remove').forEach(function(btn) {
+				btn.addEventListener('click', function() {
+					var row    = btn.closest('td');
+					var input  = row.querySelector('.gsfm-cat-img-url');
+					var preview = row.querySelector('.gsfm-cat-preview');
+					input.value = '';
+					preview.innerHTML = '<span style="color:#aaa;font-size:11px;">None</span>';
+					btn.style.display = 'none';
+				});
+			});
+		})();
+		</script>
+
 		<h2><?php esc_html_e( '3. AI fallback (optional)', 'gym-store-for-members' ); ?></h2>
 		<p class="description"><?php esc_html_e( 'Structured data (JSON-LD / OpenGraph) is used automatically and needs no AI. Enable this only for suppliers whose product pages have no structured data.', 'gym-store-for-members' ); ?></p>
 		<table class="form-table" role="presentation">

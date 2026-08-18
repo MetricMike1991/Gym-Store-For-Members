@@ -64,6 +64,9 @@ class GSFM_Admin {
 				'nonce' => wp_create_nonce( 'gsfm_admin' ),
 			)
 		);
+		if ( false !== strpos( $hook, 'gsfm-settings' ) ) {
+			wp_enqueue_media();
+		}
 	}
 
 	/**
@@ -148,6 +151,19 @@ class GSFM_Admin {
 		}
 
 		update_option( 'gsfm_settings', $out );
+
+		// Save custom category images.
+		if ( isset( $_POST['cat_image'] ) && is_array( $_POST['cat_image'] ) ) {
+			$images = array();
+			foreach ( $_POST['cat_image'] as $slug => $url ) {
+				$slug = sanitize_key( $slug );
+				$url  = esc_url_raw( (string) wp_unslash( $url ) );
+				if ( '' !== $slug && '' !== $url ) {
+					$images[ $slug ] = $url;
+				}
+			}
+			update_option( 'gsfm_cat_images', $images );
+		}
 	}
 
 	/**

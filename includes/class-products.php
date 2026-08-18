@@ -163,12 +163,16 @@ class GSFM_Products {
 			 ORDER BY category_slug ASC"
 		);
 
-		// Merge in human-readable names from the stored settings.
+		// Merge in human-readable names and custom images from stored settings.
 		$names   = self::category_name_map();
+		$customs = get_option( 'gsfm_cat_images', array() );
 		$result  = array();
 		foreach ( $rows as $row ) {
 			$row->category_name = isset( $names[ $row->category_slug ] ) ? $names[ $row->category_slug ] : ucwords( str_replace( '-', ' ', $row->category_slug ) );
-			$result[]           = $row;
+			if ( ! empty( $customs[ $row->category_slug ] ) ) {
+				$row->cover_image = $customs[ $row->category_slug ];
+			}
+			$result[] = $row;
 		}
 		return $result;
 	}
