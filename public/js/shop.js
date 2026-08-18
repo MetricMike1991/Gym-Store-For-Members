@@ -57,7 +57,7 @@
 			if (res && res.success) {
 				if (res.data.requested) {
 					$btn.addClass('is-requested').data('requested', '1');
-					showConfirm();
+					showConfirm($btn.data('mode'));
 				} else {
 					$btn.removeClass('is-requested').data('requested', '0');
 				}
@@ -72,16 +72,25 @@
 	});
 
 	// Confirmation popup shown after a member requests an item.
-	function showConfirm() {
+	function showConfirm(mode) {
+		var content = (mode === 'vending')
+			? {
+				title: 'Interest registered',
+				body: 'You&rsquo;ve expressed interest in this product. We&rsquo;ll consider adding it to the vending machine in the next order.'
+			}
+			: {
+				title: 'Added to your next order',
+				body: 'You&rsquo;ve asked us to bring this item in for you in the next order. You&rsquo;ll get a text when it arrives &mdash; usually within a few days.'
+			};
+
 		var $modal = $('#gsfm-modal');
 		if (!$modal.length) {
 			$modal = $(
 				'<div id="gsfm-modal" class="gsfm-modal-overlay">' +
 				'  <div class="gsfm-modal">' +
 				'    <div class="gsfm-modal-check">&#10003;</div>' +
-				'    <h3>Added to your next order</h3>' +
-				'    <p>You&rsquo;ve asked us to bring this item in for you in the next order. ' +
-				'You&rsquo;ll get a text when it arrives &mdash; usually within a few days.</p>' +
+				'    <h3 class="gsfm-modal-title"></h3>' +
+				'    <p class="gsfm-modal-body"></p>' +
 				'    <p class="gsfm-modal-note">Changed your mind? Just tap the button again to remove it.</p>' +
 				'    <button type="button" class="gsfm-btn gsfm-modal-ok">Got it</button>' +
 				'  </div>' +
@@ -93,6 +102,8 @@
 				}
 			});
 		}
+		$modal.find('.gsfm-modal-title').text(content.title);
+		$modal.find('.gsfm-modal-body').html(content.body);
 		// Force reflow so the transition runs.
 		$modal[0].offsetHeight;
 		$modal.addClass('is-open');

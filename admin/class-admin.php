@@ -99,9 +99,10 @@ class GSFM_Admin {
 			$visible    = ! empty( $_POST['visible'] );
 			$hide_price = ! empty( $_POST['hide_price'] );
 			$button     = isset( $_POST['button_label'] ) ? sanitize_text_field( wp_unslash( $_POST['button_label'] ) ) : '';
+			$mode       = ( isset( $_POST['request_mode'] ) && 'vending' === $_POST['request_mode'] ) ? 'vending' : 'order';
 			GSFM_Products::set_prices( $id, $rrp, $sale_price, $vat_rate );
 			GSFM_Products::set_visible( $id, $visible );
-			GSFM_Products::set_display_options( $id, $hide_price, $button );
+			GSFM_Products::set_display_options( $id, $hide_price, $button, $mode );
 			wp_safe_redirect( add_query_arg( array( 'page' => 'gsfm-products', 'updated' => 1 ), admin_url( 'admin.php' ) ) );
 			exit;
 		}

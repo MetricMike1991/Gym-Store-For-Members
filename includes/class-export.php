@@ -29,7 +29,7 @@ class GSFM_Export {
 
 		fputcsv(
 			$out,
-			array( 'Member', 'Email', 'Product', 'Cost (net) €', 'Price (VAT inc) €', 'VAT rate %', 'VAT owed €', 'Net after VAT €', 'Profit €', 'Requested', 'Status' )
+			array( 'Member', 'Email', 'Product', 'Type', 'Cost (net) €', 'Price (VAT inc) €', 'VAT rate %', 'VAT owed €', 'Net after VAT €', 'Profit €', 'Requested', 'Status' )
 		);
 
 		$tot_cost   = 0.0;
@@ -53,6 +53,7 @@ class GSFM_Export {
 					$r->display_name,
 					$r->user_email,
 					$r->title,
+					'vending' === $r->request_mode ? 'Vending' : 'Order',
 					number_format( (float) $r->supplier_price, 2, '.', '' ),
 					number_format( $pr['effective'], 2, '.', '' ),
 					number_format( $pr['vat_rate'], 2, '.', '' ),
@@ -72,6 +73,7 @@ class GSFM_Export {
 				'TOTALS',
 				'',
 				count( $rows ) . ' items',
+				'',
 				number_format( $tot_cost, 2, '.', '' ),
 				number_format( $tot_price, 2, '.', '' ),
 				'',

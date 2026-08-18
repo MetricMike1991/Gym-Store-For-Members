@@ -50,6 +50,7 @@ $export_url = wp_nonce_url(
 				<th><?php esc_html_e( 'Member', 'gym-store-for-members' ); ?></th>
 				<th><?php esc_html_e( 'Email', 'gym-store-for-members' ); ?></th>
 				<th><?php esc_html_e( 'Product', 'gym-store-for-members' ); ?></th>
+				<th><?php esc_html_e( 'Type', 'gym-store-for-members' ); ?></th>
 				<th><?php esc_html_e( 'Requested', 'gym-store-for-members' ); ?></th>
 				<th><?php esc_html_e( 'Status', 'gym-store-for-members' ); ?></th>
 				<th></th>
@@ -57,7 +58,7 @@ $export_url = wp_nonce_url(
 		</thead>
 		<tbody>
 		<?php if ( empty( $requests ) ) : ?>
-			<tr><td colspan="6"><?php esc_html_e( 'No requests yet.', 'gym-store-for-members' ); ?></td></tr>
+			<tr><td colspan="7"><?php esc_html_e( 'No requests yet.', 'gym-store-for-members' ); ?></td></tr>
 		<?php else : ?>
 			<?php foreach ( $requests as $r ) : ?>
 				<tr>
@@ -67,6 +68,7 @@ $export_url = wp_nonce_url(
 						<td><?php echo esc_html( $r->display_name ); ?></td>
 						<td><?php echo esc_html( $r->user_email ); ?></td>
 						<td><?php echo esc_html( $r->title ); ?></td>
+						<td><?php echo 'vending' === $r->request_mode ? esc_html__( 'Vending', 'gym-store-for-members' ) : esc_html__( 'Order', 'gym-store-for-members' ); ?></td>
 						<td><?php echo esc_html( $r->requested_at ); ?></td>
 						<td>
 							<select name="status">

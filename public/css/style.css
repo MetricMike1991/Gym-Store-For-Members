@@ -351,6 +351,15 @@
 	background: #2271b1;
 }
 
+/* Order vs vending request styles */
+.gsfm-mode-order {
+	background: #1a7f37;
+}
+
+.gsfm-mode-vending {
+	background: linear-gradient(135deg, #7c3aed, #5b21b6);
+}
+
 .gsfm-toggle .gsfm-label-remove {
 	display: none;
 }

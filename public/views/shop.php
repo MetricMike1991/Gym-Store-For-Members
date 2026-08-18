@@ -50,7 +50,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<?php endif; ?>
 
 					<?php
-					$btn_label = '' !== trim( (string) $p->button_label ) ? $p->button_label : __( 'Order this In for Me', 'gym-store-for-members' );
+					$mode          = ( isset( $p->request_mode ) && 'vending' === $p->request_mode ) ? 'vending' : 'order';
+					$default_label = 'vending' === $mode
+						? __( 'Please Stock This In The Vending Machine', 'gym-store-for-members' )
+						: __( 'Order this for me with the next stock order', 'gym-store-for-members' );
+					$btn_label     = '' !== trim( (string) $p->button_label ) ? $p->button_label : $default_label;
 					?>
 					<?php if ( ! $logged_in ) : ?>
 						<a class="gsfm-btn gsfm-btn-login" href="<?php echo esc_url( wp_login_url( get_permalink() ) ); ?>">
@@ -58,9 +62,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 						</a>
 					<?php else : ?>
 						<button
-							class="gsfm-btn gsfm-toggle<?php echo $requested ? ' is-requested' : ''; ?>"
+							class="gsfm-btn gsfm-toggle gsfm-mode-<?php echo esc_attr( $mode ); ?><?php echo $requested ? ' is-requested' : ''; ?>"
 							data-product="<?php echo esc_attr( $p->id ); ?>"
-							data-requested="<?php echo $requested ? '1' : '0'; ?>">
+							data-requested="<?php echo $requested ? '1' : '0'; ?>"
+							data-mode="<?php echo esc_attr( $mode ); ?>">
 							<span class="gsfm-label-add"><?php echo esc_html( $btn_label ); ?></span>
 							<span class="gsfm-label-remove"><?php esc_html_e( 'Requested', 'gym-store-for-members' ); ?> &#10003; (<?php esc_html_e( 'tap to remove', 'gym-store-for-members' ); ?>)</span>
 						</button>

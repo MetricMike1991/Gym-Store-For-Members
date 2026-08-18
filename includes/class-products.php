@@ -337,22 +337,25 @@ class GSFM_Products {
 	}
 
 	/**
-	 * Update display options: hide price and custom button label.
+	 * Update display options: hide price, custom button label, request mode.
 	 *
 	 * @param int    $id           Product ID.
 	 * @param bool   $hide_price   Whether to hide the price on the shop.
 	 * @param string $button_label Custom CTA label (empty = default).
+	 * @param string $mode         'order' or 'vending'.
 	 */
-	public static function set_display_options( $id, $hide_price, $button_label ) {
+	public static function set_display_options( $id, $hide_price, $button_label, $mode = 'order' ) {
 		global $wpdb;
+		$mode = ( 'vending' === $mode ) ? 'vending' : 'order';
 		$wpdb->update(
 			GSFM_Database::products_table(),
 			array(
 				'hide_price'   => $hide_price ? 1 : 0,
 				'button_label' => sanitize_text_field( $button_label ),
+				'request_mode' => $mode,
 			),
 			array( 'id' => (int) $id ),
-			array( '%d', '%s' ),
+			array( '%d', '%s', '%s' ),
 			array( '%d' )
 		);
 	}

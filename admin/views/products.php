@@ -48,13 +48,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<th><?php esc_html_e( 'Stock', 'gym-store-for-members' ); ?></th>
 				<th><?php esc_html_e( 'Visible', 'gym-store-for-members' ); ?></th>
 				<th><?php esc_html_e( 'Hide €', 'gym-store-for-members' ); ?></th>
+				<th><?php esc_html_e( 'Type', 'gym-store-for-members' ); ?></th>
 				<th><?php esc_html_e( 'Button label', 'gym-store-for-members' ); ?></th>
 				<th></th>
 			</tr>
 		</thead>
 		<tbody>
 		<?php if ( empty( $products ) ) : ?>
-			<tr><td colspan="13"><?php esc_html_e( 'No products yet. Configure Settings, then click Scrape Now.', 'gym-store-for-members' ); ?></td></tr>
+			<tr><td colspan="14"><?php esc_html_e( 'No products yet. Configure Settings, then click Scrape Now.', 'gym-store-for-members' ); ?></td></tr>
 		<?php else : ?>
 			<?php foreach ( $products as $p ) : ?>
 				<?php $pr = GSFM_Products::pricing( $p ); ?>
@@ -86,7 +87,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 						</td>
 						<td><input type="checkbox" name="visible" value="1" <?php checked( (int) $p->visible, 1 ); ?> /></td>
 						<td><input type="checkbox" name="hide_price" value="1" <?php checked( (int) $p->hide_price, 1 ); ?> /></td>
-						<td><input type="text" name="button_label" value="<?php echo esc_attr( $p->button_label ); ?>" placeholder="<?php esc_attr_e( 'Order this In for Me', 'gym-store-for-members' ); ?>" style="width:170px;" /></td>
+						<td>
+							<select name="request_mode">
+								<option value="order" <?php selected( $p->request_mode, 'order' ); ?>><?php esc_html_e( 'Order', 'gym-store-for-members' ); ?></option>
+								<option value="vending" <?php selected( $p->request_mode, 'vending' ); ?>><?php esc_html_e( 'Vending interest', 'gym-store-for-members' ); ?></option>
+							</select>
+						</td>
+						<td><input type="text" name="button_label" value="<?php echo esc_attr( $p->button_label ); ?>" placeholder="<?php esc_attr_e( 'Default for this type', 'gym-store-for-members' ); ?>" style="width:170px;" /></td>
 						<td><button class="button" name="gsfm_save_product" value="1"><?php esc_html_e( 'Save', 'gym-store-for-members' ); ?></button></td>
 					</form>
 				</tr>
@@ -97,6 +104,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<p class="description" style="margin-top:10px;">
 		<?php esc_html_e( 'Prices shown to members are VAT-inclusive (Irish law). Profit = price members pay − VAT owed − your cost. Margin turns red if you would lose money. VAT rates are AI-suggested — confirm classifications with your accountant.', 'gym-store-for-members' ); ?>
 		<br>
-		<?php esc_html_e( 'Hide € hides the price on the shop (good for multipacks / interest-only items). Button label overrides the default "Order this In for Me" — e.g. "Stock these in the Gym" or "Get this Flavour".', 'gym-store-for-members' ); ?>
+		<?php esc_html_e( 'Hide € hides the price on the shop. Type sets the request style: "Order" (green, brought in for the member) or "Vending interest" (purple, express interest for the vending machine). Button label overrides the default text for that type.', 'gym-store-for-members' ); ?>
 	</p>
 </div>
