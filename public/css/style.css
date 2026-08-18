@@ -404,6 +404,13 @@
 	white-space: nowrap;
 }
 
+.gsfm-myreq-price {
+	flex-shrink: 0;
+	font-weight: 800;
+	font-size: 14px;
+	color: #111;
+}
+
 .gsfm-myreq-type {
 	flex-shrink: 0;
 	max-width: 240px;
@@ -523,6 +530,41 @@
 	width: auto;
 	display: inline-block;
 	padding: 10px 26px;
+}
+
+@media (max-width: 480px) {
+	.gsfm-modal-overlay {
+		padding: 14px;
+		align-items: flex-end;
+	}
+
+	.gsfm-modal {
+		max-width: 100%;
+		padding: 20px 18px;
+		border-radius: 14px 14px 0 0;
+	}
+
+	.gsfm-modal-check {
+		width: 44px;
+		height: 44px;
+		font-size: 24px;
+		line-height: 44px;
+		margin-bottom: 10px;
+	}
+
+	.gsfm-modal h3,
+	.gsfm-modal .gsfm-modal-title {
+		font-size: 17px;
+	}
+
+	.gsfm-modal p {
+		font-size: 14px;
+	}
+
+	.gsfm-modal-ok {
+		width: 100%;
+		padding: 12px;
+	}
 }
 
 /* Drop countdown banner */

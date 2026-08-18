@@ -16,7 +16,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 	<ul class="gsfm-myreq-list"<?php echo empty( $requests ) ? ' style="display:none;"' : ''; ?>>
 		<?php foreach ( $requests as $r ) : ?>
-			<?php $mode = ( isset( $r->request_mode ) && 'vending' === $r->request_mode ) ? 'vending' : 'order'; ?>
+			<?php
+			$mode = ( isset( $r->request_mode ) && 'vending' === $r->request_mode ) ? 'vending' : 'order';
+			$pr   = GSFM_Products::pricing( $r );
+			?>
 			<li class="gsfm-myreq-item" data-product="<?php echo esc_attr( $r->product_id ); ?>">
 				<span class="gsfm-myreq-thumb">
 					<?php if ( $r->image_url ) : ?>
@@ -24,6 +27,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<?php endif; ?>
 				</span>
 				<span class="gsfm-myreq-name"><?php echo esc_html( $r->title ); ?></span>
+				<?php if ( empty( $r->hide_price ) ) : ?>
+					<span class="gsfm-myreq-price">&euro;<?php echo esc_html( number_format( $pr['effective'], 2 ) ); ?></span>
+				<?php endif; ?>
 				<span class="gsfm-myreq-type gsfm-myreq-type-<?php echo esc_attr( $mode ); ?>">
 					<?php echo 'vending' === $mode
 						? esc_html__( 'I want you to get this into the vending machine', 'gym-store-for-members' )
