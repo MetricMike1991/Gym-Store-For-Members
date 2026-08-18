@@ -24,13 +24,27 @@ class GSFM_Products {
 		$supplier_ref = isset( $data['supplier_ref'] ) ? sanitize_text_field( $data['supplier_ref'] ) : '';
 
 		$existing = $wpdb->get_row(
-			$wpdb->prepare( "SELECT id, display_price FROM {$table} WHERE supplier_ref = %s", $supplier_ref )
+			$wpdb->prepare( "SELECT id, display_price, image_url FROM {$table} WHERE supplier_ref = %s", $supplier_ref )
 		);
+
+		// Sideload image to local media library if it is still an external URL.
+		$remote_image = isset( $data['image_url'] ) ? esc_url_raw( $data['image_url'] ) : '';
+		$local_image  = $existing ? $existing->image_url : '';
+		if ( '' !== $remote_image && ! self::is_local_url( $remote_image ) ) {
+			// Only re-download if we don't already have a local copy stored.
+			if ( '' === $local_image || ! self::is_local_url( $local_image ) ) {
+				$title       = isset( $data['title'] ) ? sanitize_text_field( $data['title'] ) : '';
+				$sideloaded  = self::sideload_image( $remote_image, $title );
+				$local_image = '' !== $sideloaded ? $sideloaded : $remote_image;
+			}
+		} elseif ( '' !== $remote_image ) {
+			$local_image = $remote_image;
+		}
 
 		$row = array(
 			'supplier_ref'   => $supplier_ref,
 			'title'          => isset( $data['title'] ) ? sanitize_text_field( $data['title'] ) : '',
-			'image_url'      => isset( $data['image_url'] ) ? esc_url_raw( $data['image_url'] ) : '',
+			'image_url'      => $local_image,
 			'supplier_price' => isset( $data['supplier_price'] ) ? (float) $data['supplier_price'] : 0,
 			'in_stock'       => ! empty( $data['in_stock'] ) ? 1 : 0,
 			'last_scraped'   => current_time( 'mysql' ),
@@ -39,7 +53,6 @@ class GSFM_Products {
 		$formats = array( '%s', '%s', '%s', '%f', '%d', '%s' );
 
 		if ( $existing ) {
-			// Preserve admin-set display price; default it to supplier price if unset.
 			if ( (float) $existing->display_price <= 0 ) {
 				$row['display_price'] = (float) $row['supplier_price'];
 				$formats[]            = '%f';
@@ -52,6 +65,61 @@ class GSFM_Products {
 		$formats[]            = '%f';
 		$wpdb->insert( $table, $row, $formats );
 		return (int) $wpdb->insert_id;
+	}
+
+	/**
+	 * Download a remote image into the WP media library and return its local URL.
+	 *
+	 * @param string $url   Remote image URL.
+	 * @param string $title Product title (used as attachment title).
+	 * @return string Local URL on success, empty string on failure.
+	 */
+	public static function sideload_image( $url, $title ) {
+		if ( '' === $url ) {
+			return '';
+		}
+
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		require_once ABSPATH . 'wp-admin/includes/image.php';
+		require_once ABSPATH . 'wp-admin/includes/media.php';
+
+		$tmp = download_url( $url );
+		if ( is_wp_error( $tmp ) ) {
+			return '';
+		}
+
+		// Derive a filename from the URL, preserving extension.
+		$filename = basename( wp_parse_url( $url, PHP_URL_PATH ) );
+		if ( '' === $filename ) {
+			$filename = 'product-image.jpg';
+		}
+
+		$file = array(
+			'name'     => $filename,
+			'tmp_name' => $tmp,
+		);
+
+		$attachment_id = media_handle_sideload( $file, 0, sanitize_text_field( $title ) );
+
+		@unlink( $tmp ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+
+		if ( is_wp_error( $attachment_id ) ) {
+			return '';
+		}
+
+		return wp_get_attachment_url( $attachment_id );
+	}
+
+	/**
+	 * Check whether a URL belongs to this WordPress installation.
+	 *
+	 * @param string $url URL.
+	 * @return bool
+	 */
+	private static function is_local_url( $url ) {
+		$home = wp_parse_url( home_url(), PHP_URL_HOST );
+		$host = wp_parse_url( $url, PHP_URL_HOST );
+		return $home && $host && $host === $home;
 	}
 
 	/**
