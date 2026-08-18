@@ -25,6 +25,7 @@ class GSFM_Admin {
 		add_action( 'wp_ajax_gsfm_scrape_start', array( $this, 'ajax_scrape_start' ) );
 		add_action( 'wp_ajax_gsfm_scrape_step', array( $this, 'ajax_scrape_step' ) );
 		add_action( 'wp_ajax_gsfm_scrape_status', array( $this, 'ajax_scrape_status' ) );
+		add_action( 'wp_ajax_gsfm_test_connection', array( $this, 'ajax_test_connection' ) );
 	}
 
 	/**
@@ -258,6 +259,69 @@ class GSFM_Admin {
 			wp_send_json_success( array( 'status' => 'idle' ) );
 		}
 		wp_send_json_success( $this->progress( $job ) );
+	}
+
+	/**
+	 * AJAX: fetch one category URL and report what was returned, for diagnosing
+	 * cookie/access issues before running a full scrape.
+	 */
+	public function ajax_test_connection() {
+		check_ajax_referer( 'gsfm_admin', 'nonce' );
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'gym-store-for-members' ) ), 403 );
+		}
+
+		$s          = GSFM_Scraper::get_settings();
+		$categories = array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', $s['category_urls'] ) ) );
+		$url        = ! empty( $_POST['url'] ) ? esc_url_raw( wp_unslash( $_POST['url'] ) ) : reset( $categories );
+
+		if ( ! $url ) {
+			wp_send_json_error( array( 'message' => 'No URL to test. Add a category URL in Settings first.' ) );
+		}
+
+		$cookie = trim( $s['session_cookie'] );
+		$args   = array(
+			'timeout'     => 30,
+			'redirection' => 5,
+			'user-agent'  => GSFM_Scraper::UA,
+		);
+		if ( '' !== $cookie ) {
+			$args['headers'] = array( 'Cookie' => $cookie );
+		}
+
+		$response = wp_remote_get( $url, $args );
+		if ( is_wp_error( $response ) ) {
+			wp_send_json_error( array( 'message' => $response->get_error_message() ) );
+		}
+
+		$code = wp_remote_retrieve_response_code( $response );
+		$body = wp_remote_retrieve_body( $response );
+
+		// Page title.
+		preg_match( '/<title[^>]*>(.*?)<\/title>/is', $body, $tm );
+		$title = isset( $tm[1] ) ? html_entity_decode( strip_tags( $tm[1] ) ) : '(no title)';
+
+		// All hrefs.
+		preg_match_all( '/href=["\']([^"\'#?][^"\']*)["\']/', $body, $lm );
+		$all_links     = array_unique( $lm[1] );
+		$pattern       = $s['product_link_pattern'] ? $s['product_link_pattern'] : '/product/';
+		$product_links = array_values( array_filter( $all_links, function ( $l ) use ( $pattern ) {
+			return false !== strpos( $l, $pattern );
+		} ) );
+
+		// Check for a login form — reliable signal the cookie was rejected.
+		$has_login_form = (bool) preg_match( '/<form[^>]*action=["\'][^"\']*my-account["\']/', $body );
+
+		wp_send_json_success( array(
+			'url'             => $url,
+			'http_status'     => $code,
+			'page_title'      => trim( $title ),
+			'total_links'     => count( $all_links ),
+			'product_links'   => count( $product_links ),
+			'sample_products' => array_slice( $product_links, 0, 5 ),
+			'login_wall'      => $has_login_form,
+			'cookie_set'      => '' !== $cookie,
+		) );
 	}
 
 	/**

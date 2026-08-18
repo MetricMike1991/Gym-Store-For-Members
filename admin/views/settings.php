@@ -141,6 +141,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</table>
 		</details>
 
-		<p><button class="button button-primary" name="gsfm_save_settings" value="1"><?php esc_html_e( 'Save Settings', 'gym-store-for-members' ); ?></button></p>
+		<p><button class="button button-primary" name="gsfm_save_settings" value="1"><?php esc_html_e( 'Save Settings', 'gym-store-for-members' ); ?></button>
+		<button type="button" id="gsfm-test-btn" class="button" style="margin-left:8px;"><?php esc_html_e( 'Test Connection', 'gym-store-for-members' ); ?></button></p>
 	</form>
+
+	<div id="gsfm-test-result" style="display:none;margin-top:16px;padding:14px 18px;border-radius:6px;max-width:680px;font-family:monospace;font-size:13px;line-height:1.7;background:#f0f0f1;border:1px solid #c3c4c7;"></div>
 </div>
