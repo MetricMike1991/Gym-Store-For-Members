@@ -1,8 +1,14 @@
 /* Category grid */
+.gsfm-shop {
+	width: 100%;
+}
+
 .gsfm-cat-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 	gap: 20px;
+	width: 100%;
+	box-sizing: border-box;
 }
 
 .gsfm-cat-card {
@@ -14,6 +20,7 @@
 	text-decoration: none;
 	color: inherit;
 	background: #fff;
+	box-sizing: border-box;
 	transition: box-shadow .2s, transform .2s;
 }
 
@@ -78,6 +85,12 @@
 
 .gsfm-back-link:hover {
 	text-decoration: underline;
+}
+
+.gsfm-back-cat {
+	margin-left: 10px;
+	font-weight: 700;
+	color: #333;
 }
 
 /* Product grid */

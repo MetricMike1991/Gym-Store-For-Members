@@ -14,7 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 ?>
 <div class="gsfm-shop">
 	<p class="gsfm-back">
-		<a href="<?php echo esc_url( remove_query_arg( 'gsfm_cat' ) ); ?>" class="gsfm-back-link">&#8592; <?php echo esc_html( $cat_name ); ?></a>
+		<a href="<?php echo esc_url( get_permalink() ); ?>" class="gsfm-back-link">&#8592; <?php esc_html_e( 'All categories', 'gym-store-for-members' ); ?></a>
+		<span class="gsfm-back-cat"><?php echo esc_html( $cat_name ); ?></span>
 	</p>
 	<?php if ( empty( $products ) ) : ?>
 		<p class="gsfm-empty"><?php esc_html_e( 'No products are in stock right now. Check back soon.', 'gym-store-for-members' ); ?></p>
