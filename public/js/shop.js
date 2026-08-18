@@ -57,6 +57,7 @@
 			if (res && res.success) {
 				if (res.data.requested) {
 					$btn.addClass('is-requested').data('requested', '1');
+					showConfirm();
 				} else {
 					$btn.removeClass('is-requested').data('requested', '0');
 				}
@@ -69,4 +70,31 @@
 			$btn.prop('disabled', false);
 		});
 	});
+
+	// Confirmation popup shown after a member requests an item.
+	function showConfirm() {
+		var $modal = $('#gsfm-modal');
+		if (!$modal.length) {
+			$modal = $(
+				'<div id="gsfm-modal" class="gsfm-modal-overlay">' +
+				'  <div class="gsfm-modal">' +
+				'    <div class="gsfm-modal-check">&#10003;</div>' +
+				'    <h3>Added to your next order</h3>' +
+				'    <p>You&rsquo;ve asked us to bring this item in for you in the next order. ' +
+				'You&rsquo;ll get a text when it arrives &mdash; usually within a few days.</p>' +
+				'    <p class="gsfm-modal-note">Changed your mind? Just tap the button again to remove it.</p>' +
+				'    <button type="button" class="gsfm-btn gsfm-modal-ok">Got it</button>' +
+				'  </div>' +
+				'</div>'
+			).appendTo('body');
+			$modal.on('click', function (e) {
+				if (e.target === this || $(e.target).hasClass('gsfm-modal-ok')) {
+					$modal.removeClass('is-open');
+				}
+			});
+		}
+		// Force reflow so the transition runs.
+		$modal[0].offsetHeight;
+		$modal.addClass('is-open');
+	}
 })(jQuery);

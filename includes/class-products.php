@@ -335,4 +335,25 @@ class GSFM_Products {
 			array( '%d' )
 		);
 	}
+
+	/**
+	 * Update display options: hide price and custom button label.
+	 *
+	 * @param int    $id           Product ID.
+	 * @param bool   $hide_price   Whether to hide the price on the shop.
+	 * @param string $button_label Custom CTA label (empty = default).
+	 */
+	public static function set_display_options( $id, $hide_price, $button_label ) {
+		global $wpdb;
+		$wpdb->update(
+			GSFM_Database::products_table(),
+			array(
+				'hide_price'   => $hide_price ? 1 : 0,
+				'button_label' => sanitize_text_field( $button_label ),
+			),
+			array( 'id' => (int) $id ),
+			array( '%d', '%s' ),
+			array( '%d' )
+		);
+	}
 }

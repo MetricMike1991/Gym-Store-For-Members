@@ -201,6 +201,77 @@
 	box-shadow: 0 0 14px rgba(255, 106, 0, .35);
 }
 
+/* Confirmation modal */
+.gsfm-modal-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, .55);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100000;
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity .2s;
+	padding: 20px;
+}
+
+.gsfm-modal-overlay.is-open {
+	opacity: 1;
+	visibility: visible;
+}
+
+.gsfm-modal {
+	background: #fff;
+	border-radius: 14px;
+	max-width: 420px;
+	width: 100%;
+	padding: 28px 26px;
+	text-align: center;
+	box-shadow: 0 20px 60px rgba(0, 0, 0, .3);
+	transform: translateY(12px) scale(.97);
+	transition: transform .2s;
+}
+
+.gsfm-modal-overlay.is-open .gsfm-modal {
+	transform: translateY(0) scale(1);
+}
+
+.gsfm-modal-check {
+	width: 56px;
+	height: 56px;
+	margin: 0 auto 14px;
+	border-radius: 50%;
+	background: #1a7f37;
+	color: #fff;
+	font-size: 30px;
+	line-height: 56px;
+}
+
+.gsfm-modal h3 {
+	margin: 0 0 10px;
+	font-size: 20px;
+}
+
+.gsfm-modal p {
+	margin: 0 0 10px;
+	color: #444;
+	font-size: 15px;
+	line-height: 1.5;
+}
+
+.gsfm-modal-note {
+	font-size: 13px;
+	color: #777;
+}
+
+.gsfm-modal-ok {
+	margin-top: 8px;
+	width: auto;
+	display: inline-block;
+	padding: 10px 26px;
+}
+
 /* Drop countdown banner */
 .gsfm-countdown {
 	width: 100%;

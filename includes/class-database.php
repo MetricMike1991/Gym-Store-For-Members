@@ -52,6 +52,8 @@ class GSFM_Database {
 			display_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
 			in_stock TINYINT(1) NOT NULL DEFAULT 0,
 			visible TINYINT(1) NOT NULL DEFAULT 1,
+			hide_price TINYINT(1) NOT NULL DEFAULT 0,
+			button_label VARCHAR(150) NOT NULL DEFAULT '',
 			rrp DECIMAL(10,2) NOT NULL DEFAULT 0.00,
 			sale_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
 			vat_rate DECIMAL(5,2) NOT NULL DEFAULT 23.00,

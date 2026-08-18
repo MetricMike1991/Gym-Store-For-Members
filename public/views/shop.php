@@ -36,15 +36,22 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<?php endif; ?>
 					</div>
 					<h3 class="gsfm-title"><?php echo esc_html( $p->title ); ?></h3>
-					<?php if ( $pr['on_sale'] ) : ?>
-						<p class="gsfm-price">
-							<del class="gsfm-price-was">&euro;<?php echo esc_html( number_format( $pr['regular'], 2 ) ); ?></del>
-							<ins class="gsfm-price-now">&euro;<?php echo esc_html( number_format( $pr['effective'], 2 ) ); ?></ins>
-						</p>
+					<?php if ( empty( $p->hide_price ) ) : ?>
+						<?php if ( $pr['on_sale'] ) : ?>
+							<p class="gsfm-price">
+								<del class="gsfm-price-was">&euro;<?php echo esc_html( number_format( $pr['regular'], 2 ) ); ?></del>
+								<ins class="gsfm-price-now">&euro;<?php echo esc_html( number_format( $pr['effective'], 2 ) ); ?></ins>
+							</p>
+						<?php else : ?>
+							<p class="gsfm-price">&euro;<?php echo esc_html( number_format( $pr['effective'], 2 ) ); ?></p>
+						<?php endif; ?>
 					<?php else : ?>
-						<p class="gsfm-price">&euro;<?php echo esc_html( number_format( $pr['effective'], 2 ) ); ?></p>
+						<p class="gsfm-price gsfm-price-hidden">&nbsp;</p>
 					<?php endif; ?>
 
+					<?php
+					$btn_label = '' !== trim( (string) $p->button_label ) ? $p->button_label : __( 'Order this In for Me', 'gym-store-for-members' );
+					?>
 					<?php if ( ! $logged_in ) : ?>
 						<a class="gsfm-btn gsfm-btn-login" href="<?php echo esc_url( wp_login_url( get_permalink() ) ); ?>">
 							<?php esc_html_e( 'Log in to request', 'gym-store-for-members' ); ?>
@@ -54,8 +61,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 							class="gsfm-btn gsfm-toggle<?php echo $requested ? ' is-requested' : ''; ?>"
 							data-product="<?php echo esc_attr( $p->id ); ?>"
 							data-requested="<?php echo $requested ? '1' : '0'; ?>">
-							<span class="gsfm-label-add"><?php esc_html_e( 'Request This', 'gym-store-for-members' ); ?></span>
-							<span class="gsfm-label-remove"><?php esc_html_e( 'Requested', 'gym-store-for-members' ); ?> &#10003; (<?php esc_html_e( 'cancel', 'gym-store-for-members' ); ?>)</span>
+							<span class="gsfm-label-add"><?php echo esc_html( $btn_label ); ?></span>
+							<span class="gsfm-label-remove"><?php esc_html_e( 'Requested', 'gym-store-for-members' ); ?> &#10003; (<?php esc_html_e( 'tap to remove', 'gym-store-for-members' ); ?>)</span>
 						</button>
 					<?php endif; ?>
 				</div>
