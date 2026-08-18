@@ -102,13 +102,30 @@ class GSFM_Public {
 			}
 			ob_start();
 			require GSFM_DIR . 'public/views/shop.php';
-			return $this->logo_html() . ob_get_clean();
+			return $this->logo_html() . ob_get_clean() . $this->my_requests_panel();
 		}
 
 		$categories = GSFM_Products::get_categories();
 		ob_start();
 		require GSFM_DIR . 'public/views/categories.php';
-		return $this->logo_html() . ob_get_clean();
+		return $this->logo_html() . ob_get_clean() . $this->my_requests_panel();
+	}
+
+	/**
+	 * Build the member's request panel (server-rendered, refreshed via AJAX).
+	 * Wrapped in a mount div so JS can keep it in sync and it survives caching.
+	 *
+	 * @return string
+	 */
+	private function my_requests_panel() {
+		$inner = '';
+		if ( is_user_logged_in() ) {
+			$requests = GSFM_Wishlist::get_for_user( get_current_user_id() );
+			ob_start();
+			require GSFM_DIR . 'public/views/my-requests.php';
+			$inner = ob_get_clean();
+		}
+		return '<div class="gsfm-myreq-mount" aria-live="polite">' . $inner . '</div>';
 	}
 
 	/**
@@ -179,8 +196,8 @@ class GSFM_Public {
 	 * @return string
 	 */
 	public function shortcode_my_requests() {
-		// Rendered via AJAX so per-user content is never baked into cached / Elementor HTML.
-		return '<div class="gsfm-myreq-mount" aria-live="polite"></div>';
+		// Server-rendered immediately, then refreshed via AJAX for live accuracy.
+		return $this->my_requests_panel();
 	}
 
 	/**
