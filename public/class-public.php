@@ -18,8 +18,24 @@ class GSFM_Public {
 		add_shortcode( 'gym_shop', array( $this, 'shortcode_shop' ) );
 		add_shortcode( 'gym_account', array( $this, 'shortcode_account' ) );
 		add_shortcode( 'gym_countdown', array( $this, 'shortcode_countdown' ) );
+		add_shortcode( 'gym_access', array( $this, 'shortcode_access' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'assets' ) );
 		add_action( 'wp_ajax_gsfm_toggle', array( $this, 'ajax_toggle' ) );
+		add_action( 'wp_ajax_nopriv_gsfm_login', array( $this, 'ajax_login' ) );
+		add_action( 'wp_ajax_nopriv_gsfm_register', array( $this, 'ajax_register' ) );
+
+		// Keep the front end from feeling like WordPress: hide the admin bar for non-admins.
+		add_filter( 'show_admin_bar', array( $this, 'maybe_hide_admin_bar' ) );
+	}
+
+	/**
+	 * Hide the admin toolbar for members who cannot edit content.
+	 *
+	 * @param bool $show Current visibility.
+	 * @return bool
+	 */
+	public function maybe_hide_admin_bar( $show ) {
+		return current_user_can( 'edit_posts' ) ? $show : false;
 	}
 
 	/**
@@ -111,11 +127,134 @@ class GSFM_Public {
 	}
 
 	/**
+	 * [gym_access] — branded login + registration panel.
+	 *
+	 * @param array $atts Shortcode attributes.
+	 * @return string
+	 */
+	public function shortcode_access( $atts ) {
+		$atts = shortcode_atts(
+			array( 'redirect' => '' ),
+			$atts,
+			'gym_access'
+		);
+
+		$redirect = $atts['redirect'];
+		if ( '' === $redirect ) {
+			$settings = GSFM_Scraper::get_settings();
+			$redirect = ! empty( $settings['access_page_url'] ) ? $settings['access_page_url'] : get_permalink();
+		}
+
+		$logged_in = is_user_logged_in();
+		$current   = wp_get_current_user();
+
+		ob_start();
+		require GSFM_DIR . 'public/views/access.php';
+		return ob_get_clean();
+	}
+
+	/**
+	 * AJAX: log a member in with their email + password.
+	 */
+	public function ajax_login() {
+		check_ajax_referer( 'gsfm_public', 'nonce' );
+
+		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+		$pass  = isset( $_POST['password'] ) ? (string) wp_unslash( $_POST['password'] ) : '';
+
+		if ( ! is_email( $email ) || '' === $pass ) {
+			wp_send_json_error( array( 'message' => __( 'Please enter your email and password.', 'gym-store-for-members' ) ) );
+		}
+
+		$user = get_user_by( 'email', $email );
+		if ( ! $user ) {
+			wp_send_json_error( array( 'message' => __( 'No account found with that email. Please create one.', 'gym-store-for-members' ) ) );
+		}
+
+		$signed = wp_signon(
+			array(
+				'user_login'    => $user->user_login,
+				'user_password' => $pass,
+				'remember'      => true,
+			),
+			is_ssl()
+		);
+
+		if ( is_wp_error( $signed ) ) {
+			wp_send_json_error( array( 'message' => __( 'That password is incorrect. Please try again.', 'gym-store-for-members' ) ) );
+		}
+
+		wp_set_current_user( $signed->ID );
+		wp_send_json_success( array( 'redirect' => $this->safe_redirect_target() ) );
+	}
+
+	/**
+	 * AJAX: register a new member using their membership email.
+	 */
+	public function ajax_register() {
+		check_ajax_referer( 'gsfm_public', 'nonce' );
+
+		// Honeypot: bots fill hidden fields.
+		if ( ! empty( $_POST['website'] ) ) {
+			wp_send_json_success( array( 'redirect' => $this->safe_redirect_target() ) );
+		}
+
+		$name  = isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
+		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+		$pass  = isset( $_POST['password'] ) ? (string) wp_unslash( $_POST['password'] ) : '';
+
+		if ( '' === $name ) {
+			wp_send_json_error( array( 'message' => __( 'Please enter your name.', 'gym-store-for-members' ) ) );
+		}
+		if ( ! is_email( $email ) ) {
+			wp_send_json_error( array( 'message' => __( 'Please enter a valid email address.', 'gym-store-for-members' ) ) );
+		}
+		if ( strlen( $pass ) < 8 ) {
+			wp_send_json_error( array( 'message' => __( 'Please choose a password of at least 8 characters.', 'gym-store-for-members' ) ) );
+		}
+		if ( email_exists( $email ) ) {
+			wp_send_json_error( array( 'message' => __( 'An account with that email already exists — please log in instead.', 'gym-store-for-members' ) ) );
+		}
+
+		$user_id = wp_insert_user(
+			array(
+				'user_login'   => $email,
+				'user_email'   => $email,
+				'user_pass'    => $pass,
+				'display_name' => $name,
+				'first_name'   => $name,
+				'role'         => 'subscriber',
+			)
+		);
+
+		if ( is_wp_error( $user_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'Could not create your account. Please try again.', 'gym-store-for-members' ) ) );
+		}
+
+		wp_set_current_user( $user_id );
+		wp_set_auth_cookie( $user_id, true );
+		wp_send_json_success( array( 'redirect' => $this->safe_redirect_target() ) );
+	}
+
+	/**
+	 * Validate the posted redirect URL against this site.
+	 *
+	 * @return string
+	 */
+	private function safe_redirect_target() {
+		$requested = isset( $_POST['redirect'] ) ? esc_url_raw( wp_unslash( $_POST['redirect'] ) ) : '';
+		$fallback  = home_url( '/' );
+		if ( '' === $requested ) {
+			return $fallback;
+		}
+		return wp_validate_redirect( $requested, $fallback );
+	}
+
+	/**
 	 * AJAX: toggle a product request for the current user.
 	 */
 	public function ajax_toggle() {
 		check_ajax_referer( 'gsfm_public', 'nonce' );
-
 		if ( ! is_user_logged_in() ) {
 			wp_send_json_error( array( 'message' => __( 'Please log in first.', 'gym-store-for-members' ) ), 401 );
 		}

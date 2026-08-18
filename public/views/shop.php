@@ -11,6 +11,9 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+
+$gsfm_settings = GSFM_Scraper::get_settings();
+$gsfm_login_url = ! empty( $gsfm_settings['access_page_url'] ) ? $gsfm_settings['access_page_url'] : wp_login_url( get_permalink() );
 ?>
 <div class="gsfm-shop">
 	<p class="gsfm-back">
@@ -57,7 +60,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 					$btn_label     = '' !== trim( (string) $p->button_label ) ? $p->button_label : $default_label;
 					?>
 					<?php if ( ! $logged_in ) : ?>
-						<a class="gsfm-btn gsfm-btn-login" href="<?php echo esc_url( wp_login_url( get_permalink() ) ); ?>">
+						<a class="gsfm-btn gsfm-btn-login" href="<?php echo esc_url( $gsfm_login_url ); ?>">
 							<?php esc_html_e( 'Log in to request', 'gym-store-for-members' ); ?>
 						</a>
 					<?php else : ?>

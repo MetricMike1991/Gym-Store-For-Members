@@ -51,6 +51,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<th><label for="max_pages"><?php esc_html_e( 'Max pages per category', 'gym-store-for-members' ); ?></label></th>
 				<td><input name="max_pages" id="max_pages" type="number" min="1" value="<?php echo esc_attr( $s['max_pages'] ); ?>" style="width:80px;" /></td>
 			</tr>
+			<tr>
+				<th><label for="access_page_url"><?php esc_html_e( 'Login / register page URL', 'gym-store-for-members' ); ?></label></th>
+				<td>
+					<input name="access_page_url" id="access_page_url" type="url" class="regular-text" value="<?php echo esc_attr( $s['access_page_url'] ); ?>" placeholder="https://yoursite.com/members/" />
+					<p class="description"><?php esc_html_e( 'The page that holds the [gym_access] shortcode. The shop\'s "Log in to request" button will send members here instead of the WordPress login screen.', 'gym-store-for-members' ); ?></p>
+				</td>
+			</tr>
 		</table>
 
 		<h2><?php esc_html_e( '2b. Category Images (optional)', 'gym-store-for-members' ); ?></h2>

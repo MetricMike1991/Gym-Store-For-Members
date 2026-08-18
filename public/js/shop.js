@@ -36,6 +36,53 @@
 
 	$(initCountdown);
 
+	// Branded login / register panel.
+	function initAccess() {
+		var $wrap = $('.gsfm-access');
+		if (!$wrap.length) {
+			return;
+		}
+
+		$wrap.on('click', '.gsfm-tab', function () {
+			var tab = $(this).data('tab');
+			$wrap.find('.gsfm-tab').removeClass('is-active');
+			$(this).addClass('is-active');
+			$wrap.find('.gsfm-access-form').hide();
+			$wrap.find('.gsfm-access-form[data-form="' + tab + '"]').show();
+			$wrap.find('.gsfm-access-msg').removeClass('is-error').text('');
+		});
+
+		$wrap.on('submit', '.gsfm-access-form', function (e) {
+			e.preventDefault();
+			var $form = $(this);
+			var which = $form.data('form');
+			var $msg = $wrap.find('.gsfm-access-msg');
+			var $submit = $form.find('button[type="submit"]');
+			$msg.removeClass('is-error').text('');
+			$submit.prop('disabled', true);
+
+			var data = $form.serializeArray().reduce(function (acc, f) {
+				acc[f.name] = f.value;
+				return acc;
+			}, {});
+			data.action = (which === 'login') ? 'gsfm_login' : 'gsfm_register';
+			data.nonce = GSFM.nonce;
+
+			$.post(GSFM.ajax, data).done(function (res) {
+				if (res && res.success) {
+					window.location.href = res.data.redirect;
+				} else {
+					$msg.addClass('is-error').text((res && res.data && res.data.message) || 'Something went wrong.');
+					$submit.prop('disabled', false);
+				}
+			}).fail(function () {
+				$msg.addClass('is-error').text('Network error. Please try again.');
+				$submit.prop('disabled', false);
+			});
+		});
+	}
+	$(initAccess);
+
 	$(document).on('click', '.gsfm-toggle', function () {
 		var $btn = $(this);
 		if ($btn.prop('disabled')) {

@@ -201,6 +201,114 @@
 	box-shadow: 0 0 14px rgba(255, 106, 0, .35);
 }
 
+/* Access panel (login / register) */
+.gsfm-access {
+	max-width: 440px;
+	margin: 0 auto;
+}
+
+.gsfm-access-card {
+	border: 1px solid #e2e2e2;
+	border-radius: 14px;
+	padding: 26px 24px;
+	background: #fff;
+	box-shadow: 0 6px 24px rgba(0, 0, 0, .06);
+	text-align: center;
+}
+
+.gsfm-access-intro {
+	color: #444;
+	font-size: 15px;
+	line-height: 1.5;
+	margin: 0 0 18px;
+}
+
+.gsfm-access-tabs {
+	display: flex;
+	gap: 6px;
+	background: #f0f0f1;
+	border-radius: 8px;
+	padding: 4px;
+	margin: 0 0 18px;
+}
+
+.gsfm-tab {
+	flex: 1;
+	border: none;
+	background: transparent;
+	padding: 9px 10px;
+	border-radius: 6px;
+	font-weight: 700;
+	cursor: pointer;
+	color: #555;
+}
+
+.gsfm-tab.is-active {
+	background: #fff;
+	color: #111;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+}
+
+.gsfm-access-form {
+	text-align: left;
+}
+
+.gsfm-access-form label {
+	display: block;
+	font-weight: 600;
+	font-size: 14px;
+	margin: 0 0 12px;
+	color: #333;
+}
+
+.gsfm-access-form input {
+	display: block;
+	width: 100%;
+	box-sizing: border-box;
+	margin-top: 5px;
+	padding: 11px 12px;
+	border: 1px solid #cfcfcf;
+	border-radius: 8px;
+	font-size: 15px;
+}
+
+.gsfm-access-form .gsfm-btn {
+	margin-top: 6px;
+}
+
+/* Honeypot: hidden from real users */
+.gsfm-hp {
+	position: absolute;
+	left: -5000px;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}
+
+.gsfm-forgot {
+	display: block;
+	text-align: center;
+	margin-top: 12px;
+	font-size: 13px;
+	color: #2271b1;
+	text-decoration: none;
+}
+
+.gsfm-access-msg {
+	display: none;
+	margin: 0 0 14px;
+	padding: 10px 12px;
+	border-radius: 8px;
+	font-size: 14px;
+}
+
+.gsfm-access-msg.is-error {
+	display: block;
+	background: #fde8e8;
+	color: #b32d2e;
+	border: 1px solid #f5c2c2;
+}
+
 /* Confirmation modal */
 .gsfm-modal-overlay {
 	position: fixed;

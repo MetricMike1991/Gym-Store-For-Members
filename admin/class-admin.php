@@ -138,7 +138,7 @@ class GSFM_Admin {
 	private function save_settings() {
 		$current = GSFM_Scraper::get_settings();
 
-		$fields = array( 'product_link_pattern', 'openai_model', 'login_url', 'listing_url', 'page_param', 'username_field', 'password_field', 'username', 'xpath_item', 'xpath_title', 'xpath_image', 'xpath_price', 'xpath_stock', 'xpath_ref', 'in_stock_text' );
+		$fields = array( 'product_link_pattern', 'openai_model', 'login_url', 'listing_url', 'page_param', 'username_field', 'password_field', 'username', 'xpath_item', 'xpath_title', 'xpath_image', 'xpath_price', 'xpath_stock', 'xpath_ref', 'in_stock_text', 'access_page_url' );
 
 		$out = $current;
 		foreach ( $fields as $f ) {
