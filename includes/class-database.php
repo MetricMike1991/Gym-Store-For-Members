@@ -54,6 +54,7 @@ class GSFM_Database {
 			visible TINYINT(1) NOT NULL DEFAULT 1,
 			rrp DECIMAL(10,2) NOT NULL DEFAULT 0.00,
 			sale_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+			vat_rate DECIMAL(5,2) NOT NULL DEFAULT 23.00,
 			category_slug VARCHAR(191) NOT NULL DEFAULT '',
 			last_scraped DATETIME NULL,
 			PRIMARY KEY  (id),

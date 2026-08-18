@@ -95,8 +95,9 @@ class GSFM_Admin {
 			$id         = isset( $_POST['product_id'] ) ? (int) $_POST['product_id'] : 0;
 			$rrp        = isset( $_POST['rrp'] ) ? (float) $_POST['rrp'] : 0;
 			$sale_price = isset( $_POST['sale_price'] ) ? (float) $_POST['sale_price'] : 0;
+			$vat_rate   = isset( $_POST['vat_rate'] ) ? (float) $_POST['vat_rate'] : 23;
 			$visible    = ! empty( $_POST['visible'] );
-			GSFM_Products::set_prices( $id, $rrp, $sale_price );
+			GSFM_Products::set_prices( $id, $rrp, $sale_price, $vat_rate );
 			GSFM_Products::set_visible( $id, $visible );
 			wp_safe_redirect( add_query_arg( array( 'page' => 'gsfm-products', 'updated' => 1 ), admin_url( 'admin.php' ) ) );
 			exit;
@@ -479,7 +480,7 @@ class GSFM_Admin {
 			wp_send_json_error( array( 'message' => $rrp->get_error_message() ) );
 		}
 
-		wp_send_json_success( array( 'rrp' => $rrp ) );
+		wp_send_json_success( $rrp );
 	}
 
 	/**
@@ -524,18 +525,18 @@ class GSFM_Admin {
 				$results[] = array( 'id' => $id, 'error' => $rrp->get_error_message() );
 				continue;
 			}
-			GSFM_Products::set_prices( $id, $rrp, (float) $product->sale_price );
-			$results[] = array( 'id' => $id, 'rrp' => $rrp );
+			GSFM_Products::set_prices( $id, $rrp['rrp'], (float) $product->sale_price, $rrp['vat'] );
+			$results[] = array( 'id' => $id, 'rrp' => $rrp['rrp'], 'vat' => $rrp['vat'] );
 		}
 
 		wp_send_json_success( array( 'results' => $results ) );
 	}
 
 	/**
-	 * Query OpenAI for a product's RRP in EUR.
+	 * Query OpenAI for a product's RRP and Irish VAT rate.
 	 *
 	 * @param string $title Product title.
-	 * @return float|WP_Error
+	 * @return array|WP_Error  {rrp: float, vat: float}
 	 */
 	private function openai_rrp( $title ) {
 		$s   = GSFM_Scraper::get_settings();
@@ -551,7 +552,7 @@ class GSFM_Admin {
 			'messages'        => array(
 				array(
 					'role'    => 'system',
-					'content' => 'You are a supplement pricing assistant for the UK/Ireland market. Given a product name, return the typical retail price (RRP) in EUR as JSON: {"rrp": number}. Base it on common online retail prices. Return only the JSON.',
+					'content' => 'You are a supplement pricing assistant for the Irish (Ireland) market. Given a product name, return JSON: {"rrp": number, "vat_rate": number}. "rrp" is the typical retail price in EUR, VAT inclusive. "vat_rate" is the Irish VAT percentage most likely to apply: food supplements are usually 23; some sports nutrition foods (e.g. protein bars/powders classed as food) may be 13.5 or 0. If unsure, use 23. Return only the JSON.',
 				),
 				array(
 					'role'    => 'user',
@@ -587,6 +588,14 @@ class GSFM_Admin {
 			return new WP_Error( 'gsfm_openai', __( 'Could not determine an RRP.', 'gym-store-for-members' ) );
 		}
 
-		return round( (float) $parsed['rrp'], 2 );
+		$vat = isset( $parsed['vat_rate'] ) ? (float) $parsed['vat_rate'] : 23.0;
+		if ( $vat < 0 || $vat > 40 ) {
+			$vat = 23.0;
+		}
+
+		return array(
+			'rrp' => round( (float) $parsed['rrp'], 2 ),
+			'vat' => $vat,
+		);
 	}
 }

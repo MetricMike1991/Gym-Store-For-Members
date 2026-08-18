@@ -83,7 +83,7 @@ class GSFM_Wishlist {
 		$p = GSFM_Database::products_table();
 		return $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT w.*, p.title, p.image_url, p.display_price, p.rrp, p.sale_price, p.supplier_price
+				"SELECT w.*, p.title, p.image_url, p.display_price, p.rrp, p.sale_price, p.supplier_price, p.vat_rate
 				 FROM {$w} w
 				 INNER JOIN {$p} p ON p.id = w.product_id
 				 WHERE w.user_id = %d

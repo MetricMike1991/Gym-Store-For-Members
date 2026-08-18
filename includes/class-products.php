@@ -252,31 +252,44 @@ class GSFM_Products {
 	}
 
 	/**
-	 * Update RRP and sale price for a product.
+	 * Update RRP, sale price and (optionally) VAT rate for a product.
 	 *
-	 * @param int   $id         Product ID.
-	 * @param float $rrp        Regular retail price.
-	 * @param float $sale_price Sale price (0 = no sale).
+	 * @param int        $id         Product ID.
+	 * @param float      $rrp        Regular retail price (VAT inclusive).
+	 * @param float      $sale_price Sale price (0 = no sale).
+	 * @param float|null $vat_rate   VAT rate %, or null to leave unchanged.
 	 */
-	public static function set_prices( $id, $rrp, $sale_price ) {
+	public static function set_prices( $id, $rrp, $sale_price, $vat_rate = null ) {
 		global $wpdb;
+
+		$data    = array(
+			'rrp'        => (float) $rrp,
+			'sale_price' => (float) $sale_price,
+		);
+		$formats = array( '%f', '%f' );
+
+		if ( null !== $vat_rate ) {
+			$data['vat_rate'] = (float) $vat_rate;
+			$formats[]        = '%f';
+		}
+
 		$wpdb->update(
 			GSFM_Database::products_table(),
-			array(
-				'rrp'        => (float) $rrp,
-				'sale_price' => (float) $sale_price,
-			),
+			$data,
 			array( 'id' => (int) $id ),
-			array( '%f', '%f' ),
+			$formats,
 			array( '%d' )
 		);
 	}
 
 	/**
-	 * Compute the price a member sees for a product.
+	 * Compute VAT-aware pricing for a product.
+	 *
+	 * Consumer prices (RRP / sale) are treated as VAT-inclusive, per Irish law.
+	 * Supplier cost is treated as the net cost basis (input VAT reclaimed).
 	 *
 	 * @param object $p Product row.
-	 * @return array {regular, sale, effective, on_sale, margin_pct}
+	 * @return array
 	 */
 	public static function pricing( $p ) {
 		$rrp     = (float) $p->rrp;
@@ -284,15 +297,24 @@ class GSFM_Products {
 		$sale    = (float) $p->sale_price;
 		$on_sale = $sale > 0 && $sale < $regular;
 
-		$effective = $on_sale ? $sale : $regular;
-		$cost      = (float) $p->supplier_price;
-		$margin    = $effective > 0 ? ( ( $effective - $cost ) / $effective ) * 100 : 0;
+		$effective = $on_sale ? $sale : $regular;               // gross, VAT inclusive
+		$rate      = isset( $p->vat_rate ) ? (float) $p->vat_rate : 23.0;
+		$cost      = (float) $p->supplier_price;                 // net cost
+
+		$vat_amount = $rate > 0 ? $effective * ( $rate / ( 100 + $rate ) ) : 0.0;
+		$net        = $effective - $vat_amount;                  // revenue kept after VAT
+		$profit     = $net - $cost;
+		$margin     = $effective > 0 ? ( $profit / $effective ) * 100 : 0;
 
 		return array(
 			'regular'    => $regular,
 			'sale'       => $sale,
 			'effective'  => $effective,
 			'on_sale'    => $on_sale,
+			'vat_rate'   => $rate,
+			'vat_amount' => $vat_amount,
+			'net'        => $net,
+			'profit'     => $profit,
 			'margin_pct' => $margin,
 		);
 	}

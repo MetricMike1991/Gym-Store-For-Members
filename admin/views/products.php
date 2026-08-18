@@ -42,6 +42,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<th><?php esc_html_e( 'Cost €', 'gym-store-for-members' ); ?></th>
 				<th><?php esc_html_e( 'RRP €', 'gym-store-for-members' ); ?></th>
 				<th><?php esc_html_e( 'Sale €', 'gym-store-for-members' ); ?></th>
+				<th><?php esc_html_e( 'VAT %', 'gym-store-for-members' ); ?></th>
+				<th><?php esc_html_e( 'Profit €', 'gym-store-for-members' ); ?></th>
 				<th><?php esc_html_e( 'Margin', 'gym-store-for-members' ); ?></th>
 				<th><?php esc_html_e( 'Stock', 'gym-store-for-members' ); ?></th>
 				<th><?php esc_html_e( 'Visible', 'gym-store-for-members' ); ?></th>
@@ -50,7 +52,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</thead>
 		<tbody>
 		<?php if ( empty( $products ) ) : ?>
-			<tr><td colspan="9"><?php esc_html_e( 'No products yet. Configure Settings, then click Scrape Now.', 'gym-store-for-members' ); ?></td></tr>
+			<tr><td colspan="11"><?php esc_html_e( 'No products yet. Configure Settings, then click Scrape Now.', 'gym-store-for-members' ); ?></td></tr>
 		<?php else : ?>
 			<?php foreach ( $products as $p ) : ?>
 				<?php $pr = GSFM_Products::pricing( $p ); ?>
@@ -67,9 +69,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<td><?php echo esc_html( number_format( (float) $p->supplier_price, 2 ) ); ?></td>
 						<td style="white-space:nowrap;">
 							<input type="number" step="0.01" min="0" name="rrp" class="gsfm-rrp" value="<?php echo esc_attr( $p->rrp ); ?>" style="width:80px;" />
-							<button type="button" class="button button-small gsfm-rrp-lookup" data-product="<?php echo esc_attr( $p->id ); ?>" title="<?php esc_attr_e( 'Look up RRP with AI', 'gym-store-for-members' ); ?>">🔎</button>
+							<button type="button" class="button button-small gsfm-rrp-lookup" data-product="<?php echo esc_attr( $p->id ); ?>" title="<?php esc_attr_e( 'Look up RRP + VAT with AI', 'gym-store-for-members' ); ?>">🔎</button>
 						</td>
 						<td><input type="number" step="0.01" min="0" name="sale_price" class="gsfm-sale" value="<?php echo esc_attr( $p->sale_price ); ?>" style="width:80px;" /></td>
+						<td><input type="number" step="0.5" min="0" max="40" name="vat_rate" class="gsfm-vat" value="<?php echo esc_attr( $p->vat_rate ); ?>" style="width:64px;" /></td>
+						<td class="gsfm-profit">&euro;<?php echo esc_html( number_format( $pr['profit'], 2 ) ); ?></td>
 						<td class="gsfm-margin"><?php echo esc_html( round( $pr['margin_pct'] ) ); ?>%</td>
 						<td>
 							<?php if ( $p->in_stock ) : ?>
@@ -87,6 +91,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</tbody>
 	</table>
 	<p class="description" style="margin-top:10px;">
-		<?php esc_html_e( 'Margin is calculated from the effective price members pay (Sale if set, otherwise RRP) versus your cost. Set a Sale price below RRP to run a discount — a badge shows on the shop.', 'gym-store-for-members' ); ?>
+		<?php esc_html_e( 'Prices shown to members are VAT-inclusive (Irish law). Profit = price members pay − VAT owed − your cost. Margin turns red if you would lose money. VAT rates are AI-suggested — confirm classifications with your accountant.', 'gym-store-for-members' ); ?>
 	</p>
 </div>

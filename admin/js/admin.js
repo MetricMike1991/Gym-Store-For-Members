@@ -142,13 +142,20 @@
 			var cost = parseFloat($row.data('cost')) || 0;
 			var rrp = parseFloat($row.find('.gsfm-rrp').val()) || 0;
 			var sale = parseFloat($row.find('.gsfm-sale').val()) || 0;
+			var vat = parseFloat($row.find('.gsfm-vat').val()) || 0;
 			var eff = (sale > 0 && sale < rrp) ? sale : rrp;
-			var margin = eff > 0 ? Math.round(((eff - cost) / eff) * 100) : 0;
+			var vatAmount = vat > 0 ? eff * (vat / (100 + vat)) : 0;
+			var net = eff - vatAmount;
+			var profit = net - cost;
+			var margin = eff > 0 ? Math.round((profit / eff) * 100) : 0;
+
+			$row.find('.gsfm-profit').text('€' + profit.toFixed(2));
 			var $cell = $row.find('.gsfm-margin');
 			$cell.text(margin + '%');
-			$cell.css('color', eff > 0 && eff < cost ? '#b32d2e' : (margin < 15 ? '#7a5c00' : '#1a7f37'));
+			$cell.css('color', profit < 0 ? '#b32d2e' : (margin < 15 ? '#7a5c00' : '#1a7f37'));
+			$row.find('.gsfm-profit').css('color', profit < 0 ? '#b32d2e' : '#1a7f37');
 		}
-		$(document).on('input', '.gsfm-rrp, .gsfm-sale', function () {
+		$(document).on('input', '.gsfm-rrp, .gsfm-sale, .gsfm-vat', function () {
 			recalcMargin($(this).closest('.gsfm-prow'));
 		});
 
@@ -165,6 +172,9 @@
 			}).done(function (res) {
 				if (res && res.success) {
 					$row.find('.gsfm-rrp').val(res.data.rrp);
+					if (res.data.vat != null) {
+						$row.find('.gsfm-vat').val(res.data.vat);
+					}
 					recalcMargin($row);
 				} else {
 					window.alert((res && res.data && res.data.message) || 'Lookup failed.');
@@ -224,6 +234,9 @@
 							if (r.rrp != null) {
 								var $row = $('.gsfm-rrp-lookup[data-product="' + r.id + '"]').closest('.gsfm-prow');
 								$row.find('.gsfm-rrp').val(r.rrp);
+								if (r.vat != null) {
+									$row.find('.gsfm-vat').val(r.vat);
+								}
 								recalcMargin($row);
 							}
 						});
