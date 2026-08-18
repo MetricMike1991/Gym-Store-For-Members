@@ -280,8 +280,9 @@ class GSFM_Admin {
 		}
 
 		$s          = GSFM_Scraper::get_settings();
-		$categories = array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', $s['category_urls'] ) ) );
-		$url        = ! empty( $_POST['url'] ) ? esc_url_raw( wp_unslash( $_POST['url'] ) ) : reset( $categories );
+		$categories = GSFM_Scraper::parse_category_lines( $s['category_urls'] );
+		$first_url  = ! empty( $categories[0]['url'] ) ? $categories[0]['url'] : '';
+		$url        = ! empty( $_POST['url'] ) ? esc_url_raw( wp_unslash( $_POST['url'] ) ) : $first_url;
 
 		if ( ! $url ) {
 			wp_send_json_error( array( 'message' => 'No URL to test. Add a category URL in Settings first.' ) );
