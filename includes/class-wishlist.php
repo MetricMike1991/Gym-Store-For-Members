@@ -107,7 +107,7 @@ class GSFM_Wishlist {
 
 		$sql = "SELECT w.id, w.status, w.requested_at, w.notes,
 					u.display_name, u.user_email,
-					p.title, p.supplier_price, p.display_price
+					p.title, p.supplier_price, p.display_price, p.rrp, p.sale_price, p.vat_rate
 				FROM {$w} w
 				INNER JOIN {$p} p ON p.id = w.product_id
 				INNER JOIN {$u} u ON u.ID = w.user_id";
