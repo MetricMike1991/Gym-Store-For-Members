@@ -19,6 +19,7 @@ class GSFM_Public {
 		add_shortcode( 'gym_account', array( $this, 'shortcode_account' ) );
 		add_shortcode( 'gym_countdown', array( $this, 'shortcode_countdown' ) );
 		add_shortcode( 'gym_access', array( $this, 'shortcode_access' ) );
+		add_shortcode( 'gym_my_requests', array( $this, 'shortcode_my_requests' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'assets' ) );
 		add_action( 'wp_ajax_gsfm_toggle', array( $this, 'ajax_toggle' ) );
 		add_action( 'wp_ajax_nopriv_gsfm_login', array( $this, 'ajax_login' ) );
@@ -127,6 +128,27 @@ class GSFM_Public {
 	}
 
 	/**
+	 * [gym_my_requests] — compact list of the logged-in member's requests.
+	 * Ideal below the category grid on the shop page.
+	 *
+	 * @return string
+	 */
+	public function shortcode_my_requests() {
+		if ( ! is_user_logged_in() ) {
+			return '';
+		}
+
+		$requests = GSFM_Wishlist::get_for_user( get_current_user_id() );
+		if ( empty( $requests ) ) {
+			return '';
+		}
+
+		ob_start();
+		require GSFM_DIR . 'public/views/my-requests.php';
+		return ob_get_clean();
+	}
+
+	/**
 	 * [gym_access] — branded login + registration panel.
 	 *
 	 * @param array $atts Shortcode attributes.
@@ -142,7 +164,13 @@ class GSFM_Public {
 		$redirect = $atts['redirect'];
 		if ( '' === $redirect ) {
 			$settings = GSFM_Scraper::get_settings();
-			$redirect = ! empty( $settings['access_page_url'] ) ? $settings['access_page_url'] : get_permalink();
+			if ( ! empty( $settings['shop_page_url'] ) ) {
+				$redirect = $settings['shop_page_url'];
+			} elseif ( ! empty( $settings['access_page_url'] ) ) {
+				$redirect = $settings['access_page_url'];
+			} else {
+				$redirect = get_permalink();
+			}
 		}
 
 		$logged_in = is_user_logged_in();

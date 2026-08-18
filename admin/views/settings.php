@@ -17,6 +17,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Settings saved.', 'gym-store-for-members' ); ?></p></div>
 	<?php endif; ?>
 
+	<div class="card" style="max-width:none;padding:4px 20px 14px;">
+		<h2><?php esc_html_e( 'Shortcodes', 'gym-store-for-members' ); ?></h2>
+		<p class="description"><?php esc_html_e( 'Paste these into any page or post.', 'gym-store-for-members' ); ?></p>
+		<table class="widefat striped" style="max-width:760px;">
+			<tbody>
+				<tr><td><code>[gym_shop]</code></td><td><?php esc_html_e( 'The shop — category grid, then products. Main members page.', 'gym-store-for-members' ); ?></td></tr>
+				<tr><td><code>[gym_my_requests]</code></td><td><?php esc_html_e( 'Compact list of the logged-in member\'s requests. Great just below [gym_shop].', 'gym-store-for-members' ); ?></td></tr>
+				<tr><td><code>[gym_account]</code></td><td><?php esc_html_e( 'Full page of a member\'s requests and statuses.', 'gym-store-for-members' ); ?></td></tr>
+				<tr><td><code>[gym_access]</code></td><td><?php esc_html_e( 'Branded membership confirm / log in panel.', 'gym-store-for-members' ); ?></td></tr>
+				<tr><td><code>[gym_countdown]</code></td><td><?php esc_html_e( 'Drop countdown banner (configure in Drop Countdown).', 'gym-store-for-members' ); ?></td></tr>
+			</tbody>
+		</table>
+	</div>
+
 	<form method="post">
 		<?php wp_nonce_field( 'gsfm_settings' ); ?>
 
@@ -56,6 +70,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<td>
 					<input name="access_page_url" id="access_page_url" type="url" class="regular-text" value="<?php echo esc_attr( $s['access_page_url'] ); ?>" placeholder="https://yoursite.com/members/" />
 					<p class="description"><?php esc_html_e( 'The page that holds the [gym_access] shortcode. The shop\'s "Log in to request" button will send members here instead of the WordPress login screen.', 'gym-store-for-members' ); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="shop_page_url"><?php esc_html_e( 'Shop page URL', 'gym-store-for-members' ); ?></label></th>
+				<td>
+					<input name="shop_page_url" id="shop_page_url" type="url" class="regular-text" value="<?php echo esc_attr( $s['shop_page_url'] ); ?>" placeholder="https://yoursite.com/shop/" />
+					<p class="description"><?php esc_html_e( 'The page that holds the [gym_shop] shortcode. Members are sent here after they confirm membership / log in.', 'gym-store-for-members' ); ?></p>
 				</td>
 			</tr>
 		</table>
