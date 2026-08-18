@@ -11,7 +11,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class GSFM_Admin {
 
-	const CAP = 'manage_options';
+	const CAP        = 'manage_options';
+	const JOB_OPTION = 'gsfm_scrape_job';
+	const BATCH      = 5;
 
 	/**
 	 * Register admin hooks.
@@ -20,7 +22,9 @@ class GSFM_Admin {
 		add_action( 'admin_menu', array( $this, 'menu' ) );
 		add_action( 'admin_init', array( $this, 'handle_posts' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'assets' ) );
-		add_action( 'wp_ajax_gsfm_scrape', array( $this, 'ajax_scrape' ) );
+		add_action( 'wp_ajax_gsfm_scrape_start', array( $this, 'ajax_scrape_start' ) );
+		add_action( 'wp_ajax_gsfm_scrape_step', array( $this, 'ajax_scrape_step' ) );
+		add_action( 'wp_ajax_gsfm_scrape_status', array( $this, 'ajax_scrape_status' ) );
 	}
 
 	/**
@@ -146,20 +150,133 @@ class GSFM_Admin {
 	}
 
 	/**
-	 * AJAX: run a scrape.
+	 * AJAX: start a scrape job. For category crawls this begins the discovery
+	 * phase; with no category URLs it falls back to a synchronous legacy scrape.
 	 */
-	public function ajax_scrape() {
+	public function ajax_scrape_start() {
 		check_ajax_referer( 'gsfm_admin', 'nonce' );
 		if ( ! current_user_can( self::CAP ) ) {
 			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'gym-store-for-members' ) ), 403 );
 		}
 
-		$result = ( new GSFM_Scraper() )->run();
-		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		$scraper    = new GSFM_Scraper();
+		$categories = $scraper->category_urls();
+
+		// No categories: run the legacy one-shot scrape immediately.
+		if ( empty( $categories ) ) {
+			$result = $scraper->run();
+			delete_option( self::JOB_OPTION );
+			if ( is_wp_error( $result ) ) {
+				wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+			}
+			$result['status'] = 'done';
+			$result['phase']  = 'process';
+			wp_send_json_success( $result );
 		}
 
-		wp_send_json_success( $result );
+		$job = array(
+			'status'         => 'running',
+			'phase'          => 'discover',
+			'categories'     => array_values( $categories ),
+			'product_urls'   => array(),
+			'total_products' => 0,
+			'processed'      => 0,
+			'new'            => 0,
+			'updated'        => 0,
+			'skipped'        => 0,
+			'updated_at'     => time(),
+		);
+		update_option( self::JOB_OPTION, $job, false );
+
+		wp_send_json_success( $this->progress( $job ) );
+	}
+
+	/**
+	 * AJAX: process one batch of the running job.
+	 */
+	public function ajax_scrape_step() {
+		check_ajax_referer( 'gsfm_admin', 'nonce' );
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'gym-store-for-members' ) ), 403 );
+		}
+
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 60 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		}
+
+		$job = get_option( self::JOB_OPTION );
+		if ( ! is_array( $job ) || 'running' !== $job['status'] ) {
+			wp_send_json_success( array( 'status' => 'done' ) );
+		}
+
+		$scraper = new GSFM_Scraper();
+
+		if ( 'discover' === $job['phase'] ) {
+			$category = array_shift( $job['categories'] );
+			if ( null !== $category ) {
+				$found              = $scraper->discover( $category );
+				$job['product_urls'] = array_values( array_unique( array_merge( $job['product_urls'], $found ) ) );
+			}
+			if ( empty( $job['categories'] ) ) {
+				$job['phase']          = 'process';
+				$job['total_products'] = count( $job['product_urls'] );
+				if ( 0 === $job['total_products'] ) {
+					$job['status'] = 'done';
+				}
+			}
+		} elseif ( 'process' === $job['phase'] ) {
+			$batch = array_splice( $job['product_urls'], 0, self::BATCH );
+			foreach ( $batch as $url ) {
+				$status = $scraper->handle_product( $url );
+				$job['processed']++;
+				if ( isset( $job[ $status ] ) ) {
+					$job[ $status ]++;
+				}
+			}
+			if ( empty( $job['product_urls'] ) ) {
+				$job['status'] = 'done';
+			}
+		}
+
+		$job['updated_at'] = time();
+		update_option( self::JOB_OPTION, $job, false );
+
+		wp_send_json_success( $this->progress( $job ) );
+	}
+
+	/**
+	 * AJAX: return the current job status (for resuming after a page reload).
+	 */
+	public function ajax_scrape_status() {
+		check_ajax_referer( 'gsfm_admin', 'nonce' );
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'gym-store-for-members' ) ), 403 );
+		}
+
+		$job = get_option( self::JOB_OPTION );
+		if ( ! is_array( $job ) ) {
+			wp_send_json_success( array( 'status' => 'idle' ) );
+		}
+		wp_send_json_success( $this->progress( $job ) );
+	}
+
+	/**
+	 * Build a compact progress payload from job state.
+	 *
+	 * @param array $job Job state.
+	 * @return array
+	 */
+	private function progress( $job ) {
+		return array(
+			'status'     => $job['status'],
+			'phase'      => $job['phase'],
+			'discovered' => count( $job['product_urls'] ) + $job['processed'],
+			'total'      => $job['total_products'],
+			'processed'  => $job['processed'],
+			'new'        => $job['new'],
+			'updated'    => $job['updated'],
+			'skipped'    => $job['skipped'],
+		);
 	}
 
 	/**

@@ -125,6 +125,49 @@ class GSFM_Scraper {
 	}
 
 	/**
+	 * Category URLs configured for crawling.
+	 *
+	 * @return array
+	 */
+	public function category_urls() {
+		return $this->lines( self::get_settings()['category_urls'] );
+	}
+
+	/**
+	 * Discover product URLs within one category (used by batched jobs).
+	 *
+	 * @param string $category_url Category URL.
+	 * @return array
+	 */
+	public function discover( $category_url ) {
+		$s = self::get_settings();
+		return $this->collect_product_links( $category_url, trim( $s['session_cookie'] ), $s );
+	}
+
+	/**
+	 * Fetch, extract and upsert a single product (used by batched jobs).
+	 *
+	 * @param string $url Product URL.
+	 * @return string 'new' | 'updated' | 'skipped'
+	 */
+	public function handle_product( $url ) {
+		$s    = self::get_settings();
+		$html = $this->fetch( $url, trim( $s['session_cookie'] ) );
+		if ( is_wp_error( $html ) ) {
+			return 'skipped';
+		}
+
+		$data = $this->extract_product( $html, $url, $s );
+		if ( empty( $data ) || '' === $data['title'] ) {
+			return 'skipped';
+		}
+
+		$before = GSFM_Products::get_by_ref( $data['supplier_ref'] );
+		GSFM_Products::upsert( $data );
+		return $before ? 'updated' : 'new';
+	}
+
+	/**
 	 * Crawl category pages, then extract each product page.
 	 *
 	 * @param array $s          Settings.

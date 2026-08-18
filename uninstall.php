@@ -20,3 +20,5 @@ $wpdb->query( "DROP TABLE IF EXISTS {$products}" );
 // phpcs:enable
 
 delete_option( 'gsfm_settings' );
+delete_option( 'gsfm_scrape_job' );
+delete_option( 'gsfm_db_version' );

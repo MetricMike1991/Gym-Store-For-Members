@@ -123,6 +123,18 @@ crawl. It only falls back to programmatic login + XPath when no category URLs ar
 **Legacy fallback:** two-step programmatic login (harvests the WooCommerce nonce)
 + listing-page XPath selectors. Used only when no category URLs are configured.
 
+## Batched Background Processing
+
+A full-catalogue scrape runs as a batched job so a single request never times out:
+- `gsfm_scrape_start` — resets the job, begins the **discover** phase (or runs the
+  legacy one-shot scrape when no category URLs are set).
+- `gsfm_scrape_step` — the browser calls this repeatedly:
+  - **discover** phase: crawls one category per step, collecting product URLs.
+  - **process** phase: extracts `BATCH` (5) product pages per step.
+- `gsfm_scrape_status` — lets the Products page resume a job after a reload.
+- Job state lives in the `gsfm_scrape_job` option (autoload off); a progress bar
+  shows discovery count, then `processed / total` with new/updated/skipped tallies.
+
 ## Security
 
 - Session cookie and OpenAI key stored in options; key + legacy password are

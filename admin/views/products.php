@@ -18,6 +18,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<span id="gsfm-scrape-status" style="margin-left:10px;"></span>
 	</p>
 
+	<div id="gsfm-progress" style="display:none;max-width:520px;margin:0 0 16px;">
+		<div style="background:#e2e4e7;border-radius:6px;overflow:hidden;height:18px;">
+			<div id="gsfm-bar-fill" style="background:#2271b1;height:18px;width:0;transition:width .3s;"></div>
+		</div>
+		<p id="gsfm-progress-text" style="margin:6px 0 0;"></p>
+	</div>
+
 	<?php if ( isset( $_GET['updated'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Product saved.', 'gym-store-for-members' ); ?></p></div>
 	<?php endif; ?>
