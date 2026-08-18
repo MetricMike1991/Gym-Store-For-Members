@@ -144,9 +144,19 @@ public/
 
 ## Open Items
 
-1. **XPath selectors for protaminonutrition.com** — identify product container,
-   title, image, price, stock selectors from the logged-in listing page.
-2. **Pagination pattern** — confirm how the supplier paginates (query param `?page=`,
-   `/page/N/`, infinite scroll/AJAX). Affects the scrape loop.
+1. **XPath selectors for protaminonutrition.com** — the supplier is a **WooCommerce**
+   store (Salient/Nectar theme). The plugin now ships WooCommerce-friendly default
+   selectors, so they should work out of the box:
+   - Product item: `//li[contains(@class,'product') and contains(@class,'type-product')]`
+   - Title: `.//h2 | .//h3`
+   - Image: `.//img` (handles Nectar lazy-load + srcset)
+   - Price: `.//span[contains(@class,'price')]`
+   - Stock: auto-detected from the WooCommerce `instock`/`outofstock` class
+   - SKU/ref: auto-derived from the WooCommerce `post-{id}` class
+2. **Pagination pattern** — WooCommerce uses `/page/N/` by default, but the plugin
+   uses a `?page=N` query param. Confirm the supplier's paginated URL and set the
+   `page_param` / listing URL accordingly (WooCommerce also accepts `?product-page=N`).
 3. **Anti-bot** — if PHP requests get blocked, may need request delays or a headless
    browser step. Test the plain PHP approach first.
+4. **Login** — supplier likely uses the WooCommerce `/my-account/` form with fields
+   `username` and `password` (already the defaults).
