@@ -280,14 +280,23 @@ class GSFM_Admin {
 		}
 
 		$cookie = trim( $s['session_cookie'] );
-		$args   = array(
+		$parsed = wp_parse_url( $url );
+		$origin = ( isset( $parsed['scheme'] ) ? $parsed['scheme'] : 'https' ) . '://' . ( isset( $parsed['host'] ) ? $parsed['host'] : '' );
+
+		$headers = array_merge(
+			GSFM_Scraper::BROWSER_HEADERS,
+			array( 'Referer' => $origin . '/' )
+		);
+		if ( '' !== $cookie ) {
+			$headers['Cookie'] = $cookie;
+		}
+
+		$args = array(
 			'timeout'     => 30,
 			'redirection' => 5,
 			'user-agent'  => GSFM_Scraper::UA,
+			'headers'     => $headers,
 		);
-		if ( '' !== $cookie ) {
-			$args['headers'] = array( 'Cookie' => $cookie );
-		}
 
 		$response = wp_remote_get( $url, $args );
 		if ( is_wp_error( $response ) ) {

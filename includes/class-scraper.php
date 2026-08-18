@@ -16,7 +16,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class GSFM_Scraper {
 
-	const UA = 'Mozilla/5.0 (compatible; GymStoreBot/1.0)';
+	const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+
+	/** Headers that make server-side requests look like a real Chrome browser. */
+	const BROWSER_HEADERS = array(
+		'Accept'                    => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+		'Accept-Language'           => 'en-IE,en;q=0.9',
+		'Accept-Encoding'           => 'gzip, deflate, br',
+		'Cache-Control'             => 'no-cache',
+		'Pragma'                    => 'no-cache',
+		'Sec-Fetch-Dest'            => 'document',
+		'Sec-Fetch-Mode'            => 'navigate',
+		'Sec-Fetch-Site'            => 'same-origin',
+		'Sec-Fetch-User'            => '?1',
+		'Upgrade-Insecure-Requests' => '1',
+	);
 
 	/**
 	 * Default settings shape.
@@ -763,14 +777,25 @@ class GSFM_Scraper {
 	 * @return string|WP_Error
 	 */
 	private function fetch( $url, $cookie = '', $wp_cookies = array() ) {
+		$parsed = wp_parse_url( $url );
+		$origin = ( isset( $parsed['scheme'] ) ? $parsed['scheme'] : 'https' ) . '://' . ( isset( $parsed['host'] ) ? $parsed['host'] : '' );
+
+		$headers = array_merge(
+			self::BROWSER_HEADERS,
+			array( 'Referer' => $origin . '/' )
+		);
+
+		if ( '' !== $cookie ) {
+			$headers['Cookie'] = $cookie;
+		}
+
 		$args = array(
 			'timeout'     => 30,
 			'redirection' => 5,
 			'user-agent'  => self::UA,
+			'headers'     => $headers,
+			'sslverify'   => true,
 		);
-		if ( '' !== $cookie ) {
-			$args['headers'] = array( 'Cookie' => $cookie );
-		}
 		if ( ! empty( $wp_cookies ) ) {
 			$args['cookies'] = $wp_cookies;
 		}
