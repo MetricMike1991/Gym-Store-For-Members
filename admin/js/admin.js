@@ -175,5 +175,65 @@
 				$btn.prop('disabled', false).text(original);
 			});
 		});
+
+		// Bulk RRP lookup: fetch pending IDs, then process in small batches.
+		$('#gsfm-bulk-rrp').on('click', function () {
+			var $btn = $(this);
+			var $st = $('#gsfm-bulk-rrp-status');
+			$btn.prop('disabled', true);
+			$st.css('color', '#555').text('Finding products…');
+
+			$.post(GSFM_ADMIN.ajax, { action: 'gsfm_rrp_pending', nonce: GSFM_ADMIN.nonce })
+				.done(function (res) {
+					if (!res || !res.success) {
+						$st.css('color', '#b32d2e').text((res && res.data && res.data.message) || 'Failed.');
+						$btn.prop('disabled', false);
+						return;
+					}
+					var ids = res.data.ids || [];
+					if (!ids.length) {
+						$st.css('color', '#1a7f37').text('All products already have an RRP.');
+						$btn.prop('disabled', false);
+						return;
+					}
+					runBatches(ids, ids.length, $btn, $st);
+				})
+				.fail(function () {
+					$st.css('color', '#b32d2e').text('Network error.');
+					$btn.prop('disabled', false);
+				});
+		});
+
+		function runBatches(queue, total, $btn, $st) {
+			var BATCH = 4;
+			var done = total - queue.length;
+
+			if (!queue.length) {
+				$st.css('color', '#1a7f37').text('Done — ' + total + ' RRPs looked up. Reloading…');
+				setTimeout(function () { location.reload(); }, 1200);
+				return;
+			}
+
+			var slice = queue.slice(0, BATCH);
+			$st.text('Looking up ' + (done + 1) + '–' + (done + slice.length) + ' of ' + total + '…');
+
+			$.post(GSFM_ADMIN.ajax, { action: 'gsfm_rrp_batch', nonce: GSFM_ADMIN.nonce, ids: slice })
+				.done(function (res) {
+					if (res && res.success && res.data.results) {
+						res.data.results.forEach(function (r) {
+							if (r.rrp != null) {
+								var $row = $('.gsfm-rrp-lookup[data-product="' + r.id + '"]').closest('.gsfm-prow');
+								$row.find('.gsfm-rrp').val(r.rrp);
+								recalcMargin($row);
+							}
+						});
+					}
+					runBatches(queue.slice(BATCH), total, $btn, $st);
+				})
+				.fail(function () {
+					$st.css('color', '#b32d2e').text('Network error — stopped. Reload to see progress so far.');
+					$btn.prop('disabled', false);
+				});
+		}
 	});
 })(jQuery);

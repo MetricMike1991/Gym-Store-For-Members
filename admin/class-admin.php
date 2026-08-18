@@ -27,6 +27,8 @@ class GSFM_Admin {
 		add_action( 'wp_ajax_gsfm_scrape_status', array( $this, 'ajax_scrape_status' ) );
 		add_action( 'wp_ajax_gsfm_test_connection', array( $this, 'ajax_test_connection' ) );
 		add_action( 'wp_ajax_gsfm_lookup_rrp', array( $this, 'ajax_lookup_rrp' ) );
+		add_action( 'wp_ajax_gsfm_rrp_pending', array( $this, 'ajax_rrp_pending' ) );
+		add_action( 'wp_ajax_gsfm_rrp_batch', array( $this, 'ajax_rrp_batch' ) );
 	}
 
 	/**
@@ -472,10 +474,74 @@ class GSFM_Admin {
 			wp_send_json_error( array( 'message' => __( 'Product not found.', 'gym-store-for-members' ) ) );
 		}
 
+		$rrp = $this->openai_rrp( $product->title );
+		if ( is_wp_error( $rrp ) ) {
+			wp_send_json_error( array( 'message' => $rrp->get_error_message() ) );
+		}
+
+		wp_send_json_success( array( 'rrp' => $rrp ) );
+	}
+
+	/**
+	 * AJAX: return IDs of products that still need an RRP (rrp <= 0).
+	 */
+	public function ajax_rrp_pending() {
+		check_ajax_referer( 'gsfm_admin', 'nonce' );
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'gym-store-for-members' ) ), 403 );
+		}
+
+		global $wpdb;
+		$table = GSFM_Database::products_table();
+		$ids   = $wpdb->get_col( "SELECT id FROM {$table} WHERE rrp <= 0 ORDER BY id ASC" );
+
+		wp_send_json_success( array( 'ids' => array_map( 'intval', (array) $ids ) ) );
+	}
+
+	/**
+	 * AJAX: look up and save RRP for a small batch of product IDs.
+	 */
+	public function ajax_rrp_batch() {
+		check_ajax_referer( 'gsfm_admin', 'nonce' );
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'gym-store-for-members' ) ), 403 );
+		}
+
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 60 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		}
+
+		$ids     = isset( $_POST['ids'] ) ? array_map( 'intval', (array) $_POST['ids'] ) : array();
+		$results = array();
+
+		foreach ( $ids as $id ) {
+			$product = GSFM_Products::get( $id );
+			if ( ! $product ) {
+				continue;
+			}
+			$rrp = $this->openai_rrp( $product->title );
+			if ( is_wp_error( $rrp ) ) {
+				$results[] = array( 'id' => $id, 'error' => $rrp->get_error_message() );
+				continue;
+			}
+			GSFM_Products::set_prices( $id, $rrp, (float) $product->sale_price );
+			$results[] = array( 'id' => $id, 'rrp' => $rrp );
+		}
+
+		wp_send_json_success( array( 'results' => $results ) );
+	}
+
+	/**
+	 * Query OpenAI for a product's RRP in EUR.
+	 *
+	 * @param string $title Product title.
+	 * @return float|WP_Error
+	 */
+	private function openai_rrp( $title ) {
 		$s   = GSFM_Scraper::get_settings();
 		$key = GSFM_Scraper::decrypt( $s['openai_key_enc'] );
 		if ( '' === $key ) {
-			wp_send_json_error( array( 'message' => __( 'Add your OpenAI API key in Settings first.', 'gym-store-for-members' ) ) );
+			return new WP_Error( 'gsfm_no_key', __( 'Add your OpenAI API key in Settings first.', 'gym-store-for-members' ) );
 		}
 
 		$body = array(
@@ -489,7 +555,7 @@ class GSFM_Admin {
 				),
 				array(
 					'role'    => 'user',
-					'content' => $product->title,
+					'content' => $title,
 				),
 			),
 		);
@@ -507,20 +573,20 @@ class GSFM_Admin {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			wp_send_json_error( array( 'message' => $response->get_error_message() ) );
+			return $response;
 		}
 
 		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( empty( $decoded['choices'][0]['message']['content'] ) ) {
 			$err = isset( $decoded['error']['message'] ) ? $decoded['error']['message'] : __( 'No response from OpenAI.', 'gym-store-for-members' );
-			wp_send_json_error( array( 'message' => $err ) );
+			return new WP_Error( 'gsfm_openai', $err );
 		}
 
 		$parsed = json_decode( $decoded['choices'][0]['message']['content'], true );
 		if ( ! isset( $parsed['rrp'] ) ) {
-			wp_send_json_error( array( 'message' => __( 'Could not determine an RRP.', 'gym-store-for-members' ) ) );
+			return new WP_Error( 'gsfm_openai', __( 'Could not determine an RRP.', 'gym-store-for-members' ) );
 		}
 
-		wp_send_json_success( array( 'rrp' => round( (float) $parsed['rrp'], 2 ) ) );
+		return round( (float) $parsed['rrp'], 2 );
 	}
 }

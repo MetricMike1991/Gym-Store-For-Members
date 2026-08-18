@@ -25,6 +25,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<p id="gsfm-progress-text" style="margin:6px 0 0;"></p>
 	</div>
 
+	<p>
+		<button id="gsfm-bulk-rrp" class="button"><?php esc_html_e( 'Look up all missing RRPs (AI)', 'gym-store-for-members' ); ?></button>
+		<span id="gsfm-bulk-rrp-status" style="margin-left:10px;"></span>
+	</p>
+
 	<?php if ( isset( $_GET['updated'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Product saved.', 'gym-store-for-members' ); ?></p></div>
 	<?php endif; ?>
