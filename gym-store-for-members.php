@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Gym Store For Members
  * Description:       Scrape wholesale supplement products from a supplier and let gym members request items for the next order. Admin exports requests as CSV.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Author:            MetricMike1991
  * License:           GPL-2.0-or-later
  * Text Domain:       gym-store-for-members
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'GSFM_VERSION', '1.0.0' );
+define( 'GSFM_VERSION', '1.1.0' );
 define( 'GSFM_FILE', __FILE__ );
 define( 'GSFM_DIR', plugin_dir_path( __FILE__ ) );
 define( 'GSFM_URL', plugin_dir_url( __FILE__ ) );

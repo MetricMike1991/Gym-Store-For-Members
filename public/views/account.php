@@ -27,6 +27,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</thead>
 			<tbody>
 			<?php foreach ( $requests as $r ) : ?>
+				<?php $pr = GSFM_Products::pricing( $r ); ?>
 				<tr>
 					<td class="gsfm-acc-product">
 						<?php if ( $r->image_url ) : ?>
@@ -34,7 +35,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<?php endif; ?>
 						<span><?php echo esc_html( $r->title ); ?></span>
 					</td>
-					<td>&euro;<?php echo esc_html( number_format( (float) $r->display_price, 2 ) ); ?></td>
+					<td>&euro;<?php echo esc_html( number_format( $pr['effective'], 2 ) ); ?></td>
 					<td><?php echo esc_html( mysql2date( get_option( 'date_format' ), $r->requested_at ) ); ?></td>
 					<td><span class="gsfm-status gsfm-status-<?php echo esc_attr( $r->status ); ?>"><?php echo esc_html( ucfirst( $r->status ) ); ?></span></td>
 				</tr>

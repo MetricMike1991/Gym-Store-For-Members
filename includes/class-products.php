@@ -252,6 +252,52 @@ class GSFM_Products {
 	}
 
 	/**
+	 * Update RRP and sale price for a product.
+	 *
+	 * @param int   $id         Product ID.
+	 * @param float $rrp        Regular retail price.
+	 * @param float $sale_price Sale price (0 = no sale).
+	 */
+	public static function set_prices( $id, $rrp, $sale_price ) {
+		global $wpdb;
+		$wpdb->update(
+			GSFM_Database::products_table(),
+			array(
+				'rrp'        => (float) $rrp,
+				'sale_price' => (float) $sale_price,
+			),
+			array( 'id' => (int) $id ),
+			array( '%f', '%f' ),
+			array( '%d' )
+		);
+	}
+
+	/**
+	 * Compute the price a member sees for a product.
+	 *
+	 * @param object $p Product row.
+	 * @return array {regular, sale, effective, on_sale, margin_pct}
+	 */
+	public static function pricing( $p ) {
+		$rrp     = (float) $p->rrp;
+		$regular = $rrp > 0 ? $rrp : (float) $p->display_price;
+		$sale    = (float) $p->sale_price;
+		$on_sale = $sale > 0 && $sale < $regular;
+
+		$effective = $on_sale ? $sale : $regular;
+		$cost      = (float) $p->supplier_price;
+		$margin    = $effective > 0 ? ( ( $effective - $cost ) / $effective ) * 100 : 0;
+
+		return array(
+			'regular'    => $regular,
+			'sale'       => $sale,
+			'effective'  => $effective,
+			'on_sale'    => $on_sale,
+			'margin_pct' => $margin,
+		);
+	}
+
+	/**
 	 * Toggle product visibility in the shop.
 	 *
 	 * @param int  $id      Product ID.

@@ -21,15 +21,28 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<?php else : ?>
 		<div class="gsfm-grid">
 			<?php foreach ( $products as $p ) : ?>
-				<?php $requested = in_array( (int) $p->id, $my_products, true ); ?>
+				<?php
+				$requested = in_array( (int) $p->id, $my_products, true );
+				$pr        = GSFM_Products::pricing( $p );
+				?>
 				<div class="gsfm-card">
 					<div class="gsfm-thumb">
+						<?php if ( $pr['on_sale'] ) : ?>
+							<span class="gsfm-sale-badge"><?php esc_html_e( 'SALE', 'gym-store-for-members' ); ?></span>
+						<?php endif; ?>
 						<?php if ( $p->image_url ) : ?>
 							<img src="<?php echo esc_url( $p->image_url ); ?>" alt="<?php echo esc_attr( $p->title ); ?>" loading="lazy" />
 						<?php endif; ?>
 					</div>
 					<h3 class="gsfm-title"><?php echo esc_html( $p->title ); ?></h3>
-					<p class="gsfm-price">&euro;<?php echo esc_html( number_format( (float) $p->display_price, 2 ) ); ?></p>
+					<?php if ( $pr['on_sale'] ) : ?>
+						<p class="gsfm-price">
+							<del class="gsfm-price-was">&euro;<?php echo esc_html( number_format( $pr['regular'], 2 ) ); ?></del>
+							<ins class="gsfm-price-now">&euro;<?php echo esc_html( number_format( $pr['effective'], 2 ) ); ?></ins>
+						</p>
+					<?php else : ?>
+						<p class="gsfm-price">&euro;<?php echo esc_html( number_format( $pr['effective'], 2 ) ); ?></p>
+					<?php endif; ?>
 
 					<?php if ( ! $logged_in ) : ?>
 						<a class="gsfm-btn gsfm-btn-login" href="<?php echo esc_url( wp_login_url( get_permalink() ) ); ?>">

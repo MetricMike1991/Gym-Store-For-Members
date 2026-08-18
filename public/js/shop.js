@@ -1,6 +1,41 @@
 (function ($) {
 	'use strict';
 
+	// Drop countdown banner.
+	function initCountdown() {
+		var $cd = $('.gsfm-countdown');
+		if (!$cd.length) {
+			return;
+		}
+		var deadline = parseInt($cd.data('deadline'), 10);
+		if (!deadline) {
+			return;
+		}
+
+		function tick() {
+			var diff = deadline - Date.now();
+			if (diff <= 0) {
+				$cd.find('.gsfm-cd-open').hide();
+				$cd.find('.gsfm-cd-closed').show();
+				clearInterval(timer);
+				return;
+			}
+			var s = Math.floor(diff / 1000);
+			var d = Math.floor(s / 86400);
+			var h = Math.floor((s % 86400) / 3600);
+			var m = Math.floor((s % 3600) / 60);
+			var sec = s % 60;
+			$cd.find('.gsfm-cd-d').text(d);
+			$cd.find('.gsfm-cd-h').text(h);
+			$cd.find('.gsfm-cd-m').text(m);
+			$cd.find('.gsfm-cd-s').text(sec);
+		}
+		tick();
+		var timer = setInterval(tick, 1000);
+	}
+
+	$(initCountdown);
+
 	$(document).on('click', '.gsfm-toggle', function () {
 		var $btn = $(this);
 		if ($btn.prop('disabled')) {

@@ -17,6 +17,7 @@ class GSFM_Public {
 	public function init() {
 		add_shortcode( 'gym_shop', array( $this, 'shortcode_shop' ) );
 		add_shortcode( 'gym_account', array( $this, 'shortcode_account' ) );
+		add_shortcode( 'gym_countdown', array( $this, 'shortcode_countdown' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'assets' ) );
 		add_action( 'wp_ajax_gsfm_toggle', array( $this, 'ajax_toggle' ) );
 	}
@@ -84,6 +85,28 @@ class GSFM_Public {
 
 		ob_start();
 		require GSFM_DIR . 'public/views/account.php';
+		return ob_get_clean();
+	}
+
+	/**
+	 * [gym_countdown] — drop countdown banner.
+	 *
+	 * @return string
+	 */
+	public function shortcode_countdown() {
+		$c = GSFM_Admin::get_countdown();
+
+		if ( empty( $c['enabled'] ) || empty( $c['deadline'] ) ) {
+			return '';
+		}
+
+		$ts = strtotime( $c['deadline'] );
+		if ( ! $ts ) {
+			return '';
+		}
+
+		ob_start();
+		require GSFM_DIR . 'public/views/countdown.php';
 		return ob_get_clean();
 	}
 

@@ -136,5 +136,44 @@
 				$out.css('color', '#b32d2e').text('Network error.');
 			});
 		});
+
+		// Live margin recalculation on the products table.
+		function recalcMargin($row) {
+			var cost = parseFloat($row.data('cost')) || 0;
+			var rrp = parseFloat($row.find('.gsfm-rrp').val()) || 0;
+			var sale = parseFloat($row.find('.gsfm-sale').val()) || 0;
+			var eff = (sale > 0 && sale < rrp) ? sale : rrp;
+			var margin = eff > 0 ? Math.round(((eff - cost) / eff) * 100) : 0;
+			var $cell = $row.find('.gsfm-margin');
+			$cell.text(margin + '%');
+			$cell.css('color', eff > 0 && eff < cost ? '#b32d2e' : (margin < 15 ? '#7a5c00' : '#1a7f37'));
+		}
+		$(document).on('input', '.gsfm-rrp, .gsfm-sale', function () {
+			recalcMargin($(this).closest('.gsfm-prow'));
+		});
+
+		// AI RRP lookup per product.
+		$(document).on('click', '.gsfm-rrp-lookup', function () {
+			var $btn = $(this);
+			var $row = $btn.closest('.gsfm-prow');
+			var original = $btn.text();
+			$btn.prop('disabled', true).text('…');
+			$.post(GSFM_ADMIN.ajax, {
+				action: 'gsfm_lookup_rrp',
+				nonce: GSFM_ADMIN.nonce,
+				product_id: $btn.data('product')
+			}).done(function (res) {
+				if (res && res.success) {
+					$row.find('.gsfm-rrp').val(res.data.rrp);
+					recalcMargin($row);
+				} else {
+					window.alert((res && res.data && res.data.message) || 'Lookup failed.');
+				}
+			}).fail(function () {
+				window.alert('Network error during lookup.');
+			}).always(function () {
+				$btn.prop('disabled', false).text(original);
+			});
+		});
 	});
 })(jQuery);

@@ -21,4 +21,7 @@ $wpdb->query( "DROP TABLE IF EXISTS {$products}" );
 
 delete_option( 'gsfm_settings' );
 delete_option( 'gsfm_scrape_job' );
+delete_option( 'gsfm_categories' );
+delete_option( 'gsfm_cat_images' );
+delete_option( 'gsfm_countdown' );
 delete_option( 'gsfm_db_version' );

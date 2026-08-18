@@ -26,6 +26,7 @@ class GSFM_Admin {
 		add_action( 'wp_ajax_gsfm_scrape_step', array( $this, 'ajax_scrape_step' ) );
 		add_action( 'wp_ajax_gsfm_scrape_status', array( $this, 'ajax_scrape_status' ) );
 		add_action( 'wp_ajax_gsfm_test_connection', array( $this, 'ajax_test_connection' ) );
+		add_action( 'wp_ajax_gsfm_lookup_rrp', array( $this, 'ajax_lookup_rrp' ) );
 	}
 
 	/**
@@ -43,6 +44,7 @@ class GSFM_Admin {
 		);
 		add_submenu_page( 'gsfm-products', __( 'Products', 'gym-store-for-members' ), __( 'Products', 'gym-store-for-members' ), self::CAP, 'gsfm-products', array( $this, 'render_products' ) );
 		add_submenu_page( 'gsfm-products', __( 'Requests', 'gym-store-for-members' ), __( 'Requests', 'gym-store-for-members' ), self::CAP, 'gsfm-requests', array( $this, 'render_requests' ) );
+		add_submenu_page( 'gsfm-products', __( 'Drop Countdown', 'gym-store-for-members' ), __( 'Drop Countdown', 'gym-store-for-members' ), self::CAP, 'gsfm-countdown', array( $this, 'render_countdown' ) );
 		add_submenu_page( 'gsfm-products', __( 'Settings', 'gym-store-for-members' ), __( 'Settings', 'gym-store-for-members' ), self::CAP, 'gsfm-settings', array( $this, 'render_settings' ) );
 	}
 
@@ -85,15 +87,24 @@ class GSFM_Admin {
 			exit;
 		}
 
-		// Update a product's display price / visibility.
+		// Update a product's prices / visibility.
 		if ( isset( $_POST['gsfm_save_product'] ) ) {
 			check_admin_referer( 'gsfm_product' );
-			$id      = isset( $_POST['product_id'] ) ? (int) $_POST['product_id'] : 0;
-			$price   = isset( $_POST['display_price'] ) ? (float) $_POST['display_price'] : 0;
-			$visible = ! empty( $_POST['visible'] );
-			GSFM_Products::set_display_price( $id, $price );
+			$id         = isset( $_POST['product_id'] ) ? (int) $_POST['product_id'] : 0;
+			$rrp        = isset( $_POST['rrp'] ) ? (float) $_POST['rrp'] : 0;
+			$sale_price = isset( $_POST['sale_price'] ) ? (float) $_POST['sale_price'] : 0;
+			$visible    = ! empty( $_POST['visible'] );
+			GSFM_Products::set_prices( $id, $rrp, $sale_price );
 			GSFM_Products::set_visible( $id, $visible );
 			wp_safe_redirect( add_query_arg( array( 'page' => 'gsfm-products', 'updated' => 1 ), admin_url( 'admin.php' ) ) );
+			exit;
+		}
+
+		// Save countdown / drop banner.
+		if ( isset( $_POST['gsfm_save_countdown'] ) ) {
+			check_admin_referer( 'gsfm_countdown' );
+			$this->save_countdown();
+			wp_safe_redirect( add_query_arg( array( 'page' => 'gsfm-countdown', 'updated' => 1 ), admin_url( 'admin.php' ) ) );
 			exit;
 		}
 
@@ -400,5 +411,116 @@ class GSFM_Admin {
 	public function render_settings() {
 		$s = GSFM_Scraper::get_settings();
 		require GSFM_DIR . 'admin/views/settings.php';
+	}
+
+	/**
+	 * Render the drop countdown page.
+	 */
+	public function render_countdown() {
+		$c = self::get_countdown();
+		require GSFM_DIR . 'admin/views/countdown.php';
+	}
+
+	/**
+	 * Countdown settings with defaults.
+	 *
+	 * @return array
+	 */
+	public static function get_countdown() {
+		$defaults = array(
+			'enabled'     => 0,
+			'deadline'    => '',
+			'headline'    => 'Next group order closes in',
+			'subtext'     => "Let us know what you'd like us to order into the gym. You won't pay until it arrives — you'll get a text when it's in, usually within a few days.",
+			'closed_text' => 'This order has closed — the next drop is coming soon. Stay tuned!',
+			'bg_color'    => '#1a7f37',
+			'text_color'  => '#ffffff',
+		);
+		$saved = get_option( 'gsfm_countdown', array() );
+		return wp_parse_args( is_array( $saved ) ? $saved : array(), $defaults );
+	}
+
+	/**
+	 * Persist countdown settings.
+	 */
+	private function save_countdown() {
+		$c = self::get_countdown();
+
+		$c['enabled']     = ! empty( $_POST['enabled'] ) ? 1 : 0;
+		$c['deadline']    = isset( $_POST['deadline'] ) ? sanitize_text_field( wp_unslash( $_POST['deadline'] ) ) : '';
+		$c['headline']    = isset( $_POST['headline'] ) ? sanitize_text_field( wp_unslash( $_POST['headline'] ) ) : '';
+		$c['subtext']     = isset( $_POST['subtext'] ) ? sanitize_textarea_field( wp_unslash( $_POST['subtext'] ) ) : '';
+		$c['closed_text'] = isset( $_POST['closed_text'] ) ? sanitize_textarea_field( wp_unslash( $_POST['closed_text'] ) ) : '';
+		$c['bg_color']    = isset( $_POST['bg_color'] ) ? sanitize_hex_color( wp_unslash( $_POST['bg_color'] ) ) : '#1a7f37';
+		$c['text_color']  = isset( $_POST['text_color'] ) ? sanitize_hex_color( wp_unslash( $_POST['text_color'] ) ) : '#ffffff';
+
+		update_option( 'gsfm_countdown', $c );
+	}
+
+	/**
+	 * AJAX: suggest an RRP for a product via OpenAI.
+	 */
+	public function ajax_lookup_rrp() {
+		check_ajax_referer( 'gsfm_admin', 'nonce' );
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'gym-store-for-members' ) ), 403 );
+		}
+
+		$id      = isset( $_POST['product_id'] ) ? (int) $_POST['product_id'] : 0;
+		$product = GSFM_Products::get( $id );
+		if ( ! $product ) {
+			wp_send_json_error( array( 'message' => __( 'Product not found.', 'gym-store-for-members' ) ) );
+		}
+
+		$s   = GSFM_Scraper::get_settings();
+		$key = GSFM_Scraper::decrypt( $s['openai_key_enc'] );
+		if ( '' === $key ) {
+			wp_send_json_error( array( 'message' => __( 'Add your OpenAI API key in Settings first.', 'gym-store-for-members' ) ) );
+		}
+
+		$body = array(
+			'model'           => $s['openai_model'] ? $s['openai_model'] : 'gpt-4o-mini',
+			'temperature'     => 0,
+			'response_format' => array( 'type' => 'json_object' ),
+			'messages'        => array(
+				array(
+					'role'    => 'system',
+					'content' => 'You are a supplement pricing assistant for the UK/Ireland market. Given a product name, return the typical retail price (RRP) in EUR as JSON: {"rrp": number}. Base it on common online retail prices. Return only the JSON.',
+				),
+				array(
+					'role'    => 'user',
+					'content' => $product->title,
+				),
+			),
+		);
+
+		$response = wp_remote_post(
+			'https://api.openai.com/v1/chat/completions',
+			array(
+				'timeout' => 45,
+				'headers' => array(
+					'Authorization' => 'Bearer ' . $key,
+					'Content-Type'  => 'application/json',
+				),
+				'body'    => wp_json_encode( $body ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			wp_send_json_error( array( 'message' => $response->get_error_message() ) );
+		}
+
+		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( empty( $decoded['choices'][0]['message']['content'] ) ) {
+			$err = isset( $decoded['error']['message'] ) ? $decoded['error']['message'] : __( 'No response from OpenAI.', 'gym-store-for-members' );
+			wp_send_json_error( array( 'message' => $err ) );
+		}
+
+		$parsed = json_decode( $decoded['choices'][0]['message']['content'], true );
+		if ( ! isset( $parsed['rrp'] ) ) {
+			wp_send_json_error( array( 'message' => __( 'Could not determine an RRP.', 'gym-store-for-members' ) ) );
+		}
+
+		wp_send_json_success( array( 'rrp' => round( (float) $parsed['rrp'], 2 ) ) );
 	}
 }

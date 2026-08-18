@@ -52,6 +52,8 @@ class GSFM_Database {
 			display_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
 			in_stock TINYINT(1) NOT NULL DEFAULT 0,
 			visible TINYINT(1) NOT NULL DEFAULT 1,
+			rrp DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+			sale_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
 			category_slug VARCHAR(191) NOT NULL DEFAULT '',
 			last_scraped DATETIME NULL,
 			PRIMARY KEY  (id),
