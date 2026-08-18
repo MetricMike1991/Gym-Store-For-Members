@@ -30,6 +30,25 @@ class GSFM_Public {
 
 		// Keep the front end from feeling like WordPress: hide the admin bar for non-admins.
 		add_filter( 'show_admin_bar', array( $this, 'maybe_hide_admin_bar' ) );
+
+		// Keep our scripts out of SiteGround Optimizer's JS combine/minify so a broken bundle can't disable them.
+		add_filter( 'sgo_javascript_combine_exclude', array( $this, 'sg_exclude_js' ) );
+		add_filter( 'sgo_js_minify_exclude', array( $this, 'sg_exclude_js' ) );
+		add_filter( 'sgo_javascript_combine_exclude_ids', array( $this, 'sg_exclude_js' ) );
+	}
+
+	/**
+	 * Exclude plugin scripts from SiteGround Optimizer JS optimisation.
+	 *
+	 * @param array $handles Excluded handles/ids.
+	 * @return array
+	 */
+	public function sg_exclude_js( $handles ) {
+		$handles   = is_array( $handles ) ? $handles : array();
+		$handles[] = 'gsfm-public';
+		$handles[] = 'jquery';
+		$handles[] = 'jquery-core';
+		return $handles;
 	}
 
 	/**
