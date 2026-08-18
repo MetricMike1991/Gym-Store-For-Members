@@ -10,7 +10,14 @@ See [PLAN.md](PLAN.md) for the full architecture and roadmap.
 
 ## Features
 
-- **Scrape products** from a login-protected supplier with a single click.
+- **Supplier-agnostic scraping** — you log into the supplier in your browser and
+  paste your session cookie; the plugin never stores supplier passwords.
+- **Category crawl** — give it a list of category URLs; it follows pagination,
+  finds every product link, and extracts each product page.
+- **Robust extraction** using web standards first: schema.org **JSON-LD** →
+  **OpenGraph** meta tags → optional **OpenAI** fallback → legacy XPath.
+- **Batched background processing** with a live progress bar, so a full-catalogue
+  scrape never hits a request timeout. Jobs resume after a page reload.
 - Captures **thumbnail, title, wholesale price, and stock status**.
 - **Member shop** via `[gym_shop]` shortcode — shows only in-stock products.
 - Members **request** items; admin sees all requests and exports them as CSV.
@@ -24,10 +31,13 @@ See [PLAN.md](PLAN.md) for the full architecture and roadmap.
 
 **Option A — Upload zip**
 
-1. Zip the repository contents (the `gym-store-for-members.php` file must be at
-   the zip root).
+1. Run `./build_zip.ps1` (or use the committed `gym-store-for-members.zip`).
 2. In WP Admin go to **Plugins → Add New → Upload Plugin**, choose the zip,
    install, and activate.
+
+> The build script produces forward-slash zip paths. Do not use Windows'
+> `Compress-Archive` — it writes backslash paths that break installs on Linux
+> WordPress servers.
 
 **Option B — Git clone on the server**
 
@@ -40,16 +50,35 @@ Then activate **Gym Store For Members** in WP Admin.
 
 ## Setup
 
-1. Go to **Supplement Shop → Settings**.
-2. Enter the supplier **login URL**, **username**, and **password** (stored
-   AES-256 encrypted).
-3. Enter the **listing URL** and the **XPath selectors** for the product item,
-   title, image, price, and stock. Inspect the supplier listing page in your
-   browser's DevTools to find these.
-4. Go to **Supplement Shop → Products** and click **Scrape Now**.
+1. Log into the supplier site in your browser.
+2. Copy your **session cookie**: open DevTools (F12) → Application/Storage →
+   Cookies (or copy the full `Cookie` request header from the Network tab).
+3. Go to **Supplement Shop → Settings** and:
+   - Paste the **session cookie**.
+   - Add your **category URLs**, one per line
+     (e.g. `https://protaminonutrition.com/product-category/creatine/`).
+   - Optionally set the **product link pattern** (default `/product/`).
+   - Optionally enable the **AI fallback** and add an OpenAI key — only needed
+     for suppliers with no structured data.
+4. Go to **Supplement Shop → Products** and click **Scrape Now**. Watch the
+   progress bar; the page refreshes when the job completes.
 5. Set your **display price** per product and toggle visibility as needed.
 6. Add `[gym_shop]` to a page for the shop, and `[gym_account]` to a page for
    members to view their requests.
+
+### How extraction works
+
+For each product page the scraper tries, in order: schema.org **JSON-LD** →
+**OpenGraph** meta tags → **OpenAI** (if enabled) → legacy XPath. The first two
+are web standards published by most modern stores, so it works across different
+suppliers without configuration.
+
+### Refreshing the catalogue
+
+Session cookies expire after a day or two. Since you typically refresh weekly or
+fortnightly, just grab a fresh cookie before each scrape. Re-run **Scrape Now**
+to update prices and stock; existing products are matched by SKU (or URL) and
+updated in place — your display prices are preserved.
 
 ## Placing an order
 
@@ -62,8 +91,9 @@ Then activate **Gym Store For Members** in WP Admin.
 
 - All AJAX and form actions are nonce-protected (CSRF).
 - All database access uses `$wpdb->prepare()`.
-- Supplier credentials are AES-256-CBC encrypted using a key derived from
-  WordPress salts.
+- The OpenAI key and the legacy supplier password are AES-256-CBC encrypted using
+  a key derived from WordPress salts. The pasted session cookie is a short-lived
+  bearer token stored as-is.
 - Admin actions require the `manage_options` capability.
 
 ## Requirements

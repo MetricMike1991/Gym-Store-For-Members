@@ -150,32 +150,28 @@ A full-catalogue scrape runs as a batched job so a single request never times ou
 ## Status / Progress
 
 - [x] Repo cloned, PLAN.md committed
-- [ ] Plugin scaffolding (main file, activation)
-- [ ] Database class
-- [ ] Products CRUD
-- [ ] Scraper
-- [ ] Wishlist
-- [ ] CSV export
-- [ ] Admin UI (products / requests / settings)
-- [ ] Public shop + account shortcodes
-- [ ] CSS / JS
-- [ ] Selectors tuned for protaminonutrition.com (needs live-site inspection)
+- [x] Plugin scaffolding (main file, activation)
+- [x] Database class
+- [x] Products CRUD
+- [x] Scraper (session-cookie crawl + JSON-LD/OpenGraph/AI/XPath extraction)
+- [x] Batched background processing with progress bar (resumable)
+- [x] Wishlist
+- [x] CSV export
+- [x] Admin UI (products / requests / settings)
+- [x] Public shop + account shortcodes
+- [x] CSS / JS
+- [x] `build_zip.ps1` for correct forward-slash zips
+- [ ] Validated against a real logged-in scrape of protaminonutrition.com
 
 ## Open Items
 
-1. **XPath selectors for protaminonutrition.com** — the supplier is a **WooCommerce**
-   store (Salient/Nectar theme). The plugin now ships WooCommerce-friendly default
-   selectors, so they should work out of the box:
-   - Product item: `//li[contains(@class,'product') and contains(@class,'type-product')]`
-   - Title: `.//h2 | .//h3`
-   - Image: `.//img` (handles Nectar lazy-load + srcset)
-   - Price: `.//span[contains(@class,'price')]`
-   - Stock: auto-detected from the WooCommerce `instock`/`outofstock` class
-   - SKU/ref: auto-derived from the WooCommerce `post-{id}` class
-2. **Pagination pattern** — WooCommerce uses `/page/N/` by default, but the plugin
-   uses a `?page=N` query param. Confirm the supplier's paginated URL and set the
-   `page_param` / listing URL accordingly (WooCommerce also accepts `?product-page=N`).
-3. **Anti-bot** — if PHP requests get blocked, may need request delays or a headless
-   browser step. Test the plain PHP approach first.
-4. **Login** — supplier likely uses the WooCommerce `/my-account/` form with fields
-   `username` and `password` (already the defaults).
+1. **First live scrape** — confirm titles, prices (EUR), images and stock come
+   through cleanly. Most WooCommerce/Salient stores expose JSON-LD, so no XPath
+   tuning should be needed; the legacy XPath path remains as a fallback.
+2. **Session cookie refresh** — cookies expire in ~1–2 days; re-paste before each
+   weekly/fortnightly scrape. Future upgrade: bookmarklet or browser extension to
+   remove the manual cookie step.
+3. **Anti-bot** — if requests get blocked, add per-request delays or a headless
+   browser step.
+4. **AI fallback** — off by default; enable + add OpenAI key only for suppliers
+   with no structured data. Later: use AI for categorization / member recommendations.
