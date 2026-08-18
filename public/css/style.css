@@ -460,6 +460,41 @@
 	color: #55657a;
 }
 
+@media (max-width: 600px) {
+	.gsfm-myreq {
+		padding: 14px 14px 16px;
+	}
+
+	.gsfm-myreq-item {
+		flex-wrap: wrap;
+		gap: 8px 10px;
+		position: relative;
+		padding: 10px 40px 10px 12px;
+	}
+
+	.gsfm-myreq-name {
+		flex: 1 1 auto;
+		white-space: normal;
+	}
+
+	.gsfm-myreq-type {
+		flex: 1 1 100%;
+		max-width: 100%;
+		order: 5;
+	}
+
+	.gsfm-myreq-status,
+	.gsfm-status {
+		order: 4;
+	}
+
+	.gsfm-myreq-remove {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+	}
+}
+
 /* Confirmation modal */
 .gsfm-modal-overlay {
 	position: fixed;
