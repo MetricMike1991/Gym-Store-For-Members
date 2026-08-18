@@ -26,10 +26,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 				$requested = in_array( (int) $p->id, $my_products, true );
 				$pr        = GSFM_Products::pricing( $p );
 				?>
-				<div class="gsfm-card">
+				<div class="gsfm-card<?php echo $pr['on_sale'] ? ' gsfm-card-hot' : ''; ?>">
 					<div class="gsfm-thumb">
 						<?php if ( $pr['on_sale'] ) : ?>
-							<span class="gsfm-sale-badge"><?php esc_html_e( 'SALE', 'gym-store-for-members' ); ?></span>
+							<span class="gsfm-sale-badge">🔥 <?php esc_html_e( 'HOT DEAL', 'gym-store-for-members' ); ?></span>
 						<?php endif; ?>
 						<?php if ( $p->image_url ) : ?>
 							<img src="<?php echo esc_url( $p->image_url ); ?>" alt="<?php echo esc_attr( $p->title ); ?>" loading="lazy" />
