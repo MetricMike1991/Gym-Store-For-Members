@@ -27,12 +27,37 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<tr><td><code>[gym_account]</code></td><td><?php esc_html_e( 'Full page of a member\'s requests and statuses.', 'gym-store-for-members' ); ?></td></tr>
 				<tr><td><code>[gym_access]</code></td><td><?php esc_html_e( 'Branded membership confirm / log in panel.', 'gym-store-for-members' ); ?></td></tr>
 				<tr><td><code>[gym_countdown]</code></td><td><?php esc_html_e( 'Drop countdown banner (configure in Drop Countdown).', 'gym-store-for-members' ); ?></td></tr>
+				<tr><td><code>[gym_logo]</code></td><td><?php esc_html_e( 'Your gym logo (also shown automatically atop the shop and access pages).', 'gym-store-for-members' ); ?></td></tr>
 			</tbody>
 		</table>
 	</div>
 
 	<form method="post">
 		<?php wp_nonce_field( 'gsfm_settings' ); ?>
+
+		<h2><?php esc_html_e( 'Branding', 'gym-store-for-members' ); ?></h2>
+		<table class="form-table" role="presentation">
+			<tr>
+				<th><?php esc_html_e( 'Gym logo', 'gym-store-for-members' ); ?></th>
+				<td>
+					<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+						<div class="gsfm-logo-preview" style="min-width:120px;height:70px;border:1px solid #ddd;border-radius:6px;overflow:hidden;background:#f5f5f5;display:flex;align-items:center;justify-content:center;padding:6px;">
+							<?php if ( ! empty( $s['logo_url'] ) ) : ?>
+								<img src="<?php echo esc_url( $s['logo_url'] ); ?>" style="max-width:180px;max-height:58px;object-fit:contain;display:block;" />
+							<?php else : ?>
+								<span style="color:#aaa;font-size:11px;"><?php esc_html_e( 'No logo', 'gym-store-for-members' ); ?></span>
+							<?php endif; ?>
+						</div>
+						<div>
+							<input type="hidden" name="logo_url" class="gsfm-logo-url" value="<?php echo esc_attr( $s['logo_url'] ); ?>" />
+							<button type="button" class="button gsfm-logo-pick"><?php esc_html_e( 'Choose Logo', 'gym-store-for-members' ); ?></button>
+							<button type="button" class="button gsfm-logo-remove" style="margin-left:6px;"><?php esc_html_e( 'Remove', 'gym-store-for-members' ); ?></button>
+						</div>
+					</div>
+					<p class="description"><?php esc_html_e( 'Shown at the top of the shop and membership pages. Also available as the [gym_logo] shortcode.', 'gym-store-for-members' ); ?></p>
+				</td>
+			</tr>
+		</table>
 
 		<h2><?php esc_html_e( '1. Session (manual login)', 'gym-store-for-members' ); ?></h2>
 		<p class="description">
@@ -147,6 +172,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 					btn.style.display = 'none';
 				});
 			});
+
+			// Gym logo picker.
+			var logoPick = document.querySelector('.gsfm-logo-pick');
+			if (logoPick) {
+				logoPick.addEventListener('click', function() {
+					var input = document.querySelector('.gsfm-logo-url');
+					var preview = document.querySelector('.gsfm-logo-preview');
+					var frame = wp.media({ title: 'Choose Gym Logo', button: { text: 'Use this logo' }, multiple: false });
+					frame.on('select', function() {
+						var att = frame.state().get('selection').first().toJSON();
+						input.value = att.url;
+						preview.innerHTML = '<img src="' + att.url + '" style="max-width:180px;max-height:58px;object-fit:contain;display:block;" />';
+					});
+					frame.open();
+				});
+			}
+			var logoRemove = document.querySelector('.gsfm-logo-remove');
+			if (logoRemove) {
+				logoRemove.addEventListener('click', function() {
+					document.querySelector('.gsfm-logo-url').value = '';
+					document.querySelector('.gsfm-logo-preview').innerHTML = '<span style="color:#aaa;font-size:11px;">No logo</span>';
+				});
+			}
 		})();
 		</script>
 

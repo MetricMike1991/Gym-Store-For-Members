@@ -155,6 +155,9 @@ class GSFM_Admin {
 			// Cookie header may contain characters sanitize_text_field would keep; trim only.
 			$out['session_cookie'] = trim( (string) wp_unslash( $_POST['session_cookie'] ) );
 		}
+		if ( isset( $_POST['logo_url'] ) ) {
+			$out['logo_url'] = esc_url_raw( wp_unslash( $_POST['logo_url'] ) );
+		}
 
 		$out['pages']     = isset( $_POST['pages'] ) ? max( 1, (int) $_POST['pages'] ) : 1;
 		$out['max_pages'] = isset( $_POST['max_pages'] ) ? max( 1, (int) $_POST['max_pages'] ) : 20;

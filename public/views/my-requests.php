@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 <div class="gsfm-myreq">
-	<h3 class="gsfm-myreq-title">&#128203; <?php esc_html_e( 'YOUR list — items you\'ve asked us to bring in', 'gym-store-for-members' ); ?></h3>
+	<h3 class="gsfm-myreq-title"><?php esc_html_e( 'YOUR list — items you\'ve asked us to bring in', 'gym-store-for-members' ); ?></h3>
 	<p class="gsfm-myreq-sub"><?php esc_html_e( 'These are your personal requests for the next order. Manage them from the shop above.', 'gym-store-for-members' ); ?></p>
 	<ul class="gsfm-myreq-list">
 		<?php foreach ( $requests as $r ) : ?>

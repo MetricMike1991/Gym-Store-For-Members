@@ -46,6 +46,7 @@ class GSFM_Scraper {
 			'max_pages'            => 20,
 			'access_page_url'      => '',
 			'shop_page_url'        => '',
+			'logo_url'             => '',
 
 			// Optional AI fallback.
 			'use_ai'               => 0,

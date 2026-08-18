@@ -1,4 +1,18 @@
 /* Category grid */
+.gsfm-logo {
+	text-align: center;
+	margin: 0 0 22px;
+}
+
+.gsfm-logo img {
+	max-height: 90px;
+	max-width: 260px;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+	display: inline-block;
+}
+
 .gsfm-shop {
 	width: 100%;
 }

@@ -20,6 +20,7 @@ class GSFM_Public {
 		add_shortcode( 'gym_countdown', array( $this, 'shortcode_countdown' ) );
 		add_shortcode( 'gym_access', array( $this, 'shortcode_access' ) );
 		add_shortcode( 'gym_my_requests', array( $this, 'shortcode_my_requests' ) );
+		add_shortcode( 'gym_logo', array( $this, 'shortcode_logo' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'assets' ) );
 		add_action( 'wp_ajax_gsfm_toggle', array( $this, 'ajax_toggle' ) );
 		add_action( 'wp_ajax_nopriv_gsfm_login', array( $this, 'ajax_login' ) );
@@ -79,13 +80,13 @@ class GSFM_Public {
 			}
 			ob_start();
 			require GSFM_DIR . 'public/views/shop.php';
-			return ob_get_clean();
+			return $this->logo_html() . ob_get_clean();
 		}
 
 		$categories = GSFM_Products::get_categories();
 		ob_start();
 		require GSFM_DIR . 'public/views/categories.php';
-		return ob_get_clean();
+		return $this->logo_html() . ob_get_clean();
 	}
 
 	/**
@@ -128,6 +129,28 @@ class GSFM_Public {
 	}
 
 	/**
+	 * Logo HTML for the top of member-facing pages.
+	 *
+	 * @return string
+	 */
+	public function logo_html() {
+		$settings = GSFM_Scraper::get_settings();
+		if ( empty( $settings['logo_url'] ) ) {
+			return '';
+		}
+		return '<div class="gsfm-logo"><img src="' . esc_url( $settings['logo_url'] ) . '" alt="' . esc_attr( get_bloginfo( 'name' ) ) . '" /></div>';
+	}
+
+	/**
+	 * [gym_logo] — the gym logo, placeable anywhere.
+	 *
+	 * @return string
+	 */
+	public function shortcode_logo() {
+		return $this->logo_html();
+	}
+
+	/**
 	 * [gym_my_requests] — compact list of the logged-in member's requests.
 	 * Ideal below the category grid on the shop page.
 	 *
@@ -166,10 +189,9 @@ class GSFM_Public {
 			$settings = GSFM_Scraper::get_settings();
 			if ( ! empty( $settings['shop_page_url'] ) ) {
 				$redirect = $settings['shop_page_url'];
-			} elseif ( ! empty( $settings['access_page_url'] ) ) {
-				$redirect = $settings['access_page_url'];
 			} else {
-				$redirect = get_permalink();
+				// Never leave this empty, or the "Go to the shop" link does nothing.
+				$redirect = home_url( '/' );
 			}
 		}
 
@@ -178,7 +200,7 @@ class GSFM_Public {
 
 		ob_start();
 		require GSFM_DIR . 'public/views/access.php';
-		return ob_get_clean();
+		return $this->logo_html() . ob_get_clean();
 	}
 
 	/**

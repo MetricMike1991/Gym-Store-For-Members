@@ -32,7 +32,7 @@ $gsfm_login_url = ! empty( $gsfm_settings['access_page_url'] ) ? $gsfm_settings[
 				<div class="gsfm-card<?php echo $pr['on_sale'] ? ' gsfm-card-hot' : ''; ?>">
 					<div class="gsfm-thumb">
 						<?php if ( $pr['on_sale'] ) : ?>
-							<span class="gsfm-sale-badge">🔥 <?php esc_html_e( 'HOT DEAL', 'gym-store-for-members' ); ?></span>
+							<span class="gsfm-sale-badge"><?php esc_html_e( 'HOT DEAL', 'gym-store-for-members' ); ?></span>
 						<?php endif; ?>
 						<?php if ( $p->image_url ) : ?>
 							<img src="<?php echo esc_url( $p->image_url ); ?>" alt="<?php echo esc_attr( $p->title ); ?>" loading="lazy" />
